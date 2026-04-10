@@ -5,25 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Journal extends Model
+class FixedAsset extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'company_id',
         'name',
-        'code',
-        'type',
-        'account_id'
+        'category',
+        'acquisition_date',
+        'acquisition_value',
+        'duration_years',
+        'amortization_method',
+        'residual_value',
+        'company_id'
     ];
 
     public function company()
     {
         return $this->belongsTo(Company::class);
-    }
-
-    public function entries()
-    {
-        return $this->hasMany(Entry::class);
     }
 }

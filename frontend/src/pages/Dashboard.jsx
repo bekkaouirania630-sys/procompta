@@ -1,20 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, DoughnutChart, PieChart, Pie, Cell } from 'recharts';
+import React from 'react';
+import { useData } from '../context/DataContext';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, 
+  Legend, ResponsiveContainer, PieChart, Pie, Cell 
+} from 'recharts';
 
 export default function Dashboard() {
-  const [caData, setCaData] = useState([
+  const { data, loading } = useData();
+
+  const stats = data?.stats || { ca: 0, charges: 0, tvaCollectee: 0, tvaDeductible: 0, resultat: 0 };
+  const caData = [
     { name: 'Jan', CA: 42000, Charges: 31000 },
     { name: 'Fév', CA: 38000, Charges: 28000 },
     { name: 'Mar', CA: 51000, Charges: 35000 },
     { name: 'Avr', CA: 49000, Charges: 34000 },
     { name: 'Mai', CA: 62000, Charges: 41000 },
-    { name: 'Jun', CA: 43300, Charges: 29870 },
-  ]);
+    { name: 'Jun', CA: stats.ca || 43300, Charges: stats.charges || 29870 },
+  ];
 
   const tvaData = [
-    { name: 'Collectée', value: 35400, color: '#1D9E75' },
-    { name: 'Déductible', value: 12000, color: '#378ADD' },
-    { name: 'À payer', value: 23400, color: '#EF9F27' },
+    { name: 'Collectée', value: stats.tvaCollectee || 35400, color: '#1D9E75' },
+    { name: 'Déductible', value: stats.tvaDeductible || 12000, color: '#378ADD' },
+    { name: 'À payer', value: (stats.tvaCollectee - stats.tvaDeductible) || 23400, color: '#EF9F27' },
   ];
 
   const fmt = (n) => Number(n).toLocaleString('fr-MA', { minimumFractionDigits: 2 });
@@ -24,22 +31,22 @@ export default function Dashboard() {
       <div className="grid g4" style={{ marginBottom: '20px' }}>
         <div className="kpi-card" style={{ borderTopColor: 'var(--green)' }}>
           <div className="kpi-label">Chiffre d'affaires</div>
-          <div className="kpi-value">{fmt(285300)}</div>
+          <div className="kpi-value">{fmt(stats.ca || 285300)}</div>
           <div className="kpi-sub kpi-up">↑ MAD — Exercice 2024</div>
         </div>
         <div className="kpi-card" style={{ borderTopColor: 'var(--blue)' }}>
            <div className="kpi-label">Résultat net estimé</div>
-           <div className="kpi-value">{fmt(86430)}</div>
-           <div className="kpi-sub kpi-up">↑ Marge 30%</div>
+           <div className="kpi-value">{fmt(stats.resultat || 86430)}</div>
+           <div className="kpi-sub kpi-up">↑ Marge {stats.ca ? Math.round(stats.resultat/stats.ca*100) : 30}%</div>
         </div>
         <div className="kpi-card" style={{ borderTopColor: 'var(--amber)' }}>
            <div className="kpi-label">TVA à payer</div>
-           <div className="kpi-value">{fmt(23400)}</div>
-           <div className="kpi-sub text-muted">Collectée: {fmt(35400)} | Déduc: {fmt(12000)}</div>
+           <div className="kpi-value">{fmt(Math.max(0, stats.tvaCollectee - stats.tvaDeductible) || 23400)}</div>
+           <div className="kpi-sub text-muted">Collectée: {fmt(stats.tvaCollectee || 35400)} | Déduc: {fmt(stats.tvaDeductible || 12000)}</div>
         </div>
         <div className="kpi-card" style={{ borderTopColor: 'var(--red)' }}>
            <div className="kpi-label">Factures en attente</div>
-           <div className="kpi-value">3</div>
+           <div className="kpi-value">{data.invoices.filter(f => f.statut === 'en_attente').length}</div>
            <div className="kpi-sub kpi-down">→ Validation requise</div>
         </div>
       </div>
@@ -106,27 +113,15 @@ export default function Dashboard() {
               <tr><th>N°</th><th>Tiers</th><th>Montant TTC</th><th>Statut</th><th>Date</th></tr>
             </thead>
             <tbody>
-              <tr>
-                 <td className="text-blue fw6">FA-2024-091</td>
-                 <td>Transport Express</td>
-                 <td className="fw6">{fmt(10500)} MAD</td>
-                 <td><span className="badge badge-green">validée</span></td>
-                 <td className="text-muted">07/06/2024</td>
-              </tr>
-              <tr>
-                 <td className="text-blue fw6">FA-2024-092</td>
-                 <td>SOMAS</td>
-                 <td className="fw6">{fmt(6120)} MAD</td>
-                 <td><span className="badge badge-amber">en_attente</span></td>
-                 <td className="text-muted">06/06/2024</td>
-              </tr>
-              <tr>
-                 <td className="text-blue fw6">FV-2024-045</td>
-                 <td>Client ABC</td>
-                 <td className="fw6">{fmt(17760)} MAD</td>
-                 <td><span className="badge badge-green">payée</span></td>
-                 <td className="text-muted">01/06/2024</td>
-              </tr>
+              {data.invoices.slice(-5).reverse().map(invoice => (
+                <tr key={invoice.id}>
+                  <td className="text-blue fw6">{invoice.numero}</td>
+                  <td>{invoice.tier?.name || 'Tier'}</td>
+                  <td className="fw6">{fmt(invoice.ttc)} MAD</td>
+                  <td><span className={`badge ${invoice.statut === 'validée' ? 'badge-green' : 'badge-amber'}`}>{invoice.statut}</span></td>
+                  <td className="text-muted">{new Date(invoice.date).toLocaleDateString()}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -140,7 +135,7 @@ export default function Dashboard() {
           <h3 style={{marginTop: '20px'}}>Alertes & Notifications</h3>
           <div className="flex-c">
             <div className="alert alert-amber"><span>⚠</span><span>Déclaration TVA — Échéance dans 5 jours</span></div>
-            <div className="alert alert-blue"><span>ℹ</span><span>3 salariés sans bulletin Juin 2024</span></div>
+            <div className="alert alert-blue"><span>ℹ</span><span>{data.employees.length - data.payslips.filter(p => p.month === 6).length} salariés sans bulletin Juin 2024</span></div>
             <div className="alert alert-red"><span>✕</span><span>Ecriture ACH-2024-003 non équilibrée</span></div>
           </div>
         </div>

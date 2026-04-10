@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\DB;
 
 class EntryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Entry::with(['entryLines', 'journal'])->get());
+        $companyId = $request->user()->company_id;
+        return response()->json(Entry::whereHas('journal', function($q) use ($companyId) {
+            $q->where('company_id', $companyId);
+        })->with(['entryLines.account', 'journal'])->get());
     }
 
     public function store(Request $request)

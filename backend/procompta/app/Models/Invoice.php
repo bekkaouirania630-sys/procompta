@@ -10,7 +10,8 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
-        'client_id',
+        'company_id',
+        'tier_id',
         'numero',
         'type',
         'date',
@@ -21,9 +22,9 @@ class Invoice extends Model
         'statut'
     ];
 
-    public function client()
+    public function tier()
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Tier::class);
     }
 
     public function invoiceLines()

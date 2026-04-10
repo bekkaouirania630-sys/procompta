@@ -1,19 +1,50 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard, BookOpen, FileText, ScanLine,
+  Users, Landmark, UserCog, BarChart3, TrendingUp,
+  Wallet, BookMarked, Settings, LogOut, ChevronLeft,
+  ChevronRight, Bell, Search, Building2, ChevronDown,
+  Calculator
+} from 'lucide-react';
 
-const MENU = [
-  { id: 'dashboard',   icon: '◉', label: 'Tableau de bord', path: '/dashboard' },
-  { id: 'comptabilite',icon: '📒', label: 'Comptabilité', path: '/comptabilite' },
-  { id: 'factures',    icon: '📄', label: 'Factures', path: '/factures' },
-  { id: 'ocr',         icon: '🔍', label: 'OCR / Import', path: '/ocr' },
-  { id: 'clients',     icon: '👤', label: 'Clients', path: '/clients' },
-  { id: 'fournisseurs',icon: '🏭', label: 'Fournisseurs', path: '/fournisseurs' },
-  { id: 'tresorerie',  icon: '🏦', label: 'Trésorerie', path: '/tresorerie' },
-  { id: 'parametres',  icon: '⚙️', label: 'Paramètres', path: '/parametres' },
+const MENU_SECTIONS = [
+  {
+    label: 'PRINCIPAL',
+    items: [
+      { id: 'dashboard',    icon: LayoutDashboard, label: 'Tableau de bord', path: '/dashboard' },
+    ]
+  },
+  {
+    label: 'COMPTABILITÉ',
+    items: [
+      { id: 'comptabilite', icon: BookOpen,         label: 'Saisie & Livres', path: '/comptabilite' },
+      { id: 'factures',     icon: FileText,         label: 'Factures',        path: '/factures' },
+      { id: 'tresorerie',   icon: Landmark,         label: 'Trésorerie',      path: '/tresorerie' },
+      { id: 'budget',       icon: Wallet,           label: 'Budget',          path: '/budget' },
+    ]
+  },
+  {
+    label: 'FISCALITÉ & RH',
+    items: [
+      { id: 'fiscalite',    icon: Calculator,       label: 'Fiscalité TVA',   path: '/fiscalite' },
+      { id: 'rh',           icon: UserCog,          label: 'RH & Paie',       path: '/rh' },
+    ]
+  },
+  {
+    label: 'OUTILS',
+    items: [
+      { id: 'ocr',          icon: ScanLine,         label: 'OCR / Import',    path: '/ocr' },
+      { id: 'plan-tiers',   icon: Users,            label: 'Plan Tiers',      path: '/plan-tiers' },
+      { id: 'reporting',    icon: BarChart3,         label: 'Reporting',       path: '/reporting' },
+      { id: 'journaux',     icon: BookMarked,        label: 'Codes Journaux',  path: '/journaux' },
+    ]
+  },
 ];
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,65 +53,139 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const currentMenu = MENU.find(m => location.pathname.includes(m.path)) || MENU[0];
+  const allItems = MENU_SECTIONS.flatMap(s => s.items);
+  const currentMenu = allItems.find(m => location.pathname.startsWith(m.path)) || allItems[0];
 
   return (
     <div id="app">
+      {/* ── Sidebar ── */}
       <aside id="sidebar" className={collapsed ? 'collapsed' : ''}>
-        <div className="sb-logo" onClick={() => setCollapsed(!collapsed)}>
-          <div className="sb-logo-icon">C</div>
+        {/* Logo */}
+        <div className="sb-logo">
+          <div className="sb-logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18"/>
+            </svg>
+          </div>
           {!collapsed && (
-            <div className="sb-collapsed-hide">
-              <div className="sb-logo-text">ComptaMA</div>
-              <div className="sb-logo-sub">PCM · IA · OCR</div>
+            <div className="sb-logo-info">
+              <div className="sb-logo-text">ProCompta</div>
+              <div className="sb-logo-sub">ERP Marocain · v2.0</div>
             </div>
           )}
-        </div>
-        
-        <div className="sb-societe sb-collapsed-hide" style={{ display: collapsed ? 'none' : 'block' }}>
-          <select id="societe-select">
-            <option>ALFA SARL</option>
-            <option>BETA SA</option>
-          </select>
+          <button className="sb-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? 'Développer' : 'Réduire'}>
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
         </div>
 
+        {/* Company selector */}
+        {!collapsed && (
+          <div className="sb-company">
+            <Building2 size={13} className="sb-company-icon" />
+            <select className="sb-company-select" id="societe-select">
+              <option>ALFA SARL</option>
+              <option>BETA SA</option>
+              <option>GAMMA SARLAU</option>
+            </select>
+            <ChevronDown size={12} className="sb-company-chevron" />
+          </div>
+        )}
+
+        {/* Navigation sections */}
         <nav className="sb-nav">
-          {MENU.map(m => (
-            <button
-              key={m.id}
-              className={`sb-item ${location.pathname.includes(m.path) ? 'active' : ''}`}
-              onClick={() => navigate(m.path)}
-            >
-              <span className="icon">{m.icon}</span>
-              {!collapsed && <span className="sb-collapsed-hide">{m.label}</span>}
-            </button>
+          {MENU_SECTIONS.map((section) => (
+            <div key={section.label} className="sb-section">
+              {!collapsed && <div className="sb-section-label">{section.label}</div>}
+              {section.items.map(m => {
+                const Icon = m.icon;
+                const isActive = location.pathname.startsWith(m.path);
+                return (
+                  <button
+                    key={m.id}
+                    className={`sb-item ${isActive ? 'active' : ''}`}
+                    onClick={() => navigate(m.path)}
+                    title={collapsed ? m.label : undefined}
+                  >
+                    <span className="sb-item-icon"><Icon size={16} /></span>
+                    {!collapsed && <span className="sb-item-label">{m.label}</span>}
+                    {!collapsed && isActive && <span className="sb-item-dot" />}
+                  </button>
+                );
+              })}
+            </div>
           ))}
-          <div style={{flex: 1}}></div>
-          <button className="sb-item" onClick={handleLogout} style={{marginTop: 'auto', borderTop: '1px solid #1e1e1e'}}>
-            <span className="icon">🚪</span>
-            {!collapsed && <span className="sb-collapsed-hide">Déconnexion</span>}
-          </button>
         </nav>
-        <button className="sb-collapse" onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? '▶' : '◀'}
-        </button>
+
+        {/* Bottom actions */}
+        <div className="sb-footer">
+          <button
+            className="sb-item"
+            onClick={() => navigate('/parametres')}
+            title={collapsed ? 'Paramètres' : undefined}
+          >
+            <span className="sb-item-icon"><Settings size={16} /></span>
+            {!collapsed && <span className="sb-item-label">Paramètres</span>}
+          </button>
+          <button
+            className="sb-item sb-item-danger"
+            onClick={handleLogout}
+            title={collapsed ? 'Déconnexion' : undefined}
+          >
+            <span className="sb-item-icon"><LogOut size={16} /></span>
+            {!collapsed && <span className="sb-item-label">Déconnexion</span>}
+          </button>
+        </div>
       </aside>
 
+      {/* ── Main Content ── */}
       <div id="main">
+        {/* Topbar */}
         <header id="topbar">
-          <div>
-            <span className="tb-title">{currentMenu.label}</span>
-            <span style={{ color: 'var(--text3)', margin: '0 8px' }}>—</span>
-            <span style={{ fontSize: '12px', color: 'var(--text3)' }}>ALFA SARL</span>
+          <div className="tb-left">
+            <div className="tb-breadcrumb">
+              <span className="tb-company-name">ALFA SARL</span>
+              <span className="tb-sep">/</span>
+              <span className="tb-page-name">{currentMenu.label}</span>
+            </div>
           </div>
+
+          <div className="tb-center">
+            <div className="tb-search">
+              <Search size={14} className="tb-search-icon" />
+              <input type="text" placeholder="Rechercher..." className="tb-search-input" />
+              <kbd className="tb-search-kbd">⌘K</kbd>
+            </div>
+          </div>
+
           <div className="tb-right">
-            <span style={{ fontSize: '12px', color: 'var(--text3)' }}>
-              {new Date().toLocaleDateString('fr-MA')}
+            <span className="tb-date">
+              {new Date().toLocaleDateString('fr-MA', { weekday: 'short', day: 'numeric', month: 'short' })}
             </span>
-            <span className="tb-badge" onClick={() => navigate('/factures')}>
-              3 en attente
-            </span>
-            <div className="tb-avatar" title="Mon Profil">A</div>
+            <button className="tb-icon-btn" onClick={() => navigate('/factures')} title="Notifications">
+              <Bell size={16} />
+              <span className="tb-notif-dot" />
+            </button>
+            <div className="tb-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+              <div className="tb-avatar">A</div>
+              {!collapsed && (
+                <div className="tb-user-info">
+                  <div className="tb-user-name">Admin</div>
+                  <div className="tb-user-role">Comptable</div>
+                </div>
+              )}
+              <ChevronDown size={12} className="tb-user-chevron" />
+              {userMenuOpen && (
+                <div className="tb-user-dropdown">
+                  <div className="tb-dropdown-item" onClick={() => navigate('/parametres')}>
+                    <Settings size={14} /> Mon profil
+                  </div>
+                  <div className="tb-dropdown-divider" />
+                  <div className="tb-dropdown-item danger" onClick={handleLogout}>
+                    <LogOut size={14} /> Déconnexion
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

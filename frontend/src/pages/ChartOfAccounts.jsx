@@ -32,9 +32,10 @@ const ChartOfAccounts = () => {
       if (!response.ok) throw new Error('Failed to fetch accounts');
       
       const data = await response.json();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
+      setAccounts([]);
     } finally {
       setLoading(false);
     }

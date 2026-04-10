@@ -5,16 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Journal extends Model
+class Tier extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'company_id',
-        'name',
         'code',
+        'name',
         'type',
-        'account_id'
+        'account_id',
+        'ice',
+        'if',
+        'rc',
+        'patente',
+        'cnss',
+        'address',
+        'ville',
+        'phone',
+        'email'
     ];
 
     public function company()
@@ -22,8 +31,8 @@ class Journal extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function entries()
+    public function account()
     {
-        return $this->hasMany(Entry::class);
+        return $this->belongsTo(Account::class, 'account_id');
     }
 }
