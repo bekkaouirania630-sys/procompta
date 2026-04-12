@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToCompany;
 
 class Budget extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany;
 
     protected $fillable = [
         'account_id',
@@ -22,8 +21,5 @@ class Budget extends Model
         return $this->belongsTo(Account::class);
     }
 
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
+
 }

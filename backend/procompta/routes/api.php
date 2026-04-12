@@ -20,6 +20,11 @@ use App\Http\Controllers\API\EmployeeController;
 use App\Http\Controllers\API\PayslipController;
 use App\Http\Controllers\API\FixedAssetController;
 use App\Http\Controllers\API\BudgetController;
+use App\Http\Controllers\API\BankAccountController;
+use App\Http\Controllers\API\BankTransactionController;
+use App\Http\Controllers\API\BankReconciliationController;
+use App\Http\Controllers\API\NotificationController;
+use App\Http\Controllers\API\AuditController;
 
 Route::group([
     'prefix' => 'auth'
@@ -40,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('companies', CompanyController::class);
     Route::apiResource('roles', RoleController::class);
     Route::apiResource('users', UserController::class);
+    Route::apiResource('audits', AuditController::class)->only(['index']);
     
     // Comptabilité
     Route::prefix('accounting')->group(function () {
@@ -49,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('journals/import', [JournalController::class, 'import']);
         Route::apiResource('journals', JournalController::class);
         Route::apiResource('entries', EntryController::class);
+        Route::patch('entries/{id}/status', [EntryController::class, 'updateStatus']);
         Route::apiResource('entry-lines', EntryLineController::class);
     });
 
@@ -76,5 +83,34 @@ Route::middleware('auth:sanctum')->group(function () {
     // Budget & Assets
     Route::apiResource('fixed-assets', FixedAssetController::class);
     Route::apiResource('budgets', BudgetController::class);
+
+    // Trésorerie
+    Route::get('bank-accounts/summary', [BankAccountController::class, 'summary']);
+    Route::get('bank-accounts/{bankAccount}/transactions', [BankAccountController::class, 'transactions']);
+    Route::apiResource('bank-accounts', BankAccountController::class);
+    Route::post('bank-transactions/import-csv', [BankTransactionController::class, 'importCsv']);
+    Route::patch('bank-transactions/{bankTransaction}/reconcile', [BankTransactionController::class, 'reconcile']);
+    
+    // Rapprochement Bancaire Avancé
+    Route::prefix('bank-reconciliation')->group(function () {
+        Route::get('unmatched', [BankReconciliationController::class, 'unmatchedTransactions']);
+        Route::get('suggestions/{transaction}', [BankReconciliationController::class, 'suggestions']);
+        Route::post('link', [BankReconciliationController::class, 'link']);
+        Route::post('auto-match', [BankReconciliationController::class, 'autoMatch']);
+    });
+    
+    Route::apiResource('bank-transactions', BankTransactionController::class);
+
+    // Notifications
+    Route::get('notifications', [NotificationController::class, 'index']);
+
+    // OCR & Documents
+    Route::prefix('ocr')->group(function () {
+        Route::get('documents', [\App\Http\Controllers\API\OcrController::class, 'index']);
+        Route::post('upload', [\App\Http\Controllers\API\OcrController::class, 'store']);
+        Route::post('analyze', [\App\Http\Controllers\API\OcrController::class, 'analyze']);
+        Route::get('documents/{id}', [\App\Http\Controllers\API\OcrController::class, 'show']);
+        Route::delete('documents/{id}', [\App\Http\Controllers\API\OcrController::class, 'destroy']);
+    });
 
 });

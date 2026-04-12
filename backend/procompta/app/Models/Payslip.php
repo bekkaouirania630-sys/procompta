@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToCompany;
 
 class Payslip extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany;
 
     protected $fillable = [
         'employee_id',
@@ -28,8 +27,5 @@ class Payslip extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
+
 }

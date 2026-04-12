@@ -13,7 +13,9 @@ class InvoiceLine extends Model
         'invoice_id',
         'description',
         'quantity',
-        'price'
+        'price',
+        'tva_rate',
+        'discount_rate'
     ];
 
     public function invoice()

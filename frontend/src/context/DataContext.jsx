@@ -34,13 +34,15 @@ export const DataProvider = ({ children }) => {
 
     const headers = { 
       'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json' 
+      'Accept': 'application/json',
+      'X-Company-Id': localStorage.getItem('company_id')
     };
 
     try {
       const [
         accounts, journals, tiers, invoices, entries, 
-        employees, payslips, fixedAssets, budgets, dashboard
+        employees, payslips, fixedAssets, budgets, dashboard,
+        bankAccounts
       ] = await Promise.all([
         fetch('http://localhost:8000/api/accounting/accounts', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/accounting/journals', { headers }).then(r => r.json()),
@@ -51,7 +53,8 @@ export const DataProvider = ({ children }) => {
         fetch('http://localhost:8000/api/payslips', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/fixed-assets', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/budgets', { headers }).then(r => r.json()),
-        fetch('http://localhost:8000/api/dashboard/accounting', { headers }).then(r => r.json())
+        fetch('http://localhost:8000/api/dashboard/accounting', { headers }).then(r => r.json()),
+        fetch('http://localhost:8000/api/bank-accounts/summary', { headers }).then(r => r.json())
       ]);
 
       setData({
@@ -64,6 +67,7 @@ export const DataProvider = ({ children }) => {
         payslips: Array.isArray(payslips) ? payslips : [],
         fixed_assets: Array.isArray(fixedAssets) ? fixedAssets : [],
         budgets: Array.isArray(budgets) ? budgets : [],
+        bank_accounts: bankAccounts?.accounts || [],
         stats: (dashboard && typeof dashboard === 'object' && !dashboard.message) ? dashboard : { ca: 0, charges: 0, tvaCollectee: 0, tvaDeductible: 0, resultat: 0 }
       });
     } catch (err) {
@@ -75,6 +79,10 @@ export const DataProvider = ({ children }) => {
 
   useEffect(() => {
     fetchAll();
+    
+    const handleCompanyChange = () => fetchAll();
+    window.addEventListener('company-changed', handleCompanyChange);
+    return () => window.removeEventListener('company-changed', handleCompanyChange);
   }, []);
 
   const refresh = () => fetchAll();

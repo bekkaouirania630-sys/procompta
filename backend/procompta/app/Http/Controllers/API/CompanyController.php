@@ -18,7 +18,18 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'ice' => 'nullable|string|max:255',
-            'adresse' => 'nullable|string|max:255',
+            'if' => 'nullable|string|max:255',
+            'rc' => 'nullable|string|max:255',
+            'patente' => 'nullable|string|max:255',
+            'cnss' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|string|email|max:255',
+            'ville' => 'nullable|string|max:255',
+            'logo' => 'nullable|string|max:255',
+            'tva_regime' => 'sometimes|in:mensuel,trimestriel,exoneré',
+            'compta_method' => 'sometimes|in:engagement,encaissement',
+            'currency' => 'sometimes|string|size:3',
         ]);
 
         $company = Company::create($validated);
@@ -37,7 +48,18 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'ice' => 'nullable|string|max:255',
-            'adresse' => 'nullable|string|max:255',
+            'if' => 'nullable|string|max:255',
+            'rc' => 'nullable|string|max:255',
+            'patente' => 'nullable|string|max:255',
+            'cnss' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|string|email|max:255',
+            'ville' => 'nullable|string|max:255',
+            'logo' => 'nullable|string|max:255',
+            'tva_regime' => 'sometimes|in:mensuel,trimestriel,exoneré',
+            'compta_method' => 'sometimes|in:engagement,encaissement',
+            'currency' => 'sometimes|string|size:3',
         ]);
 
         $company->update($validated);

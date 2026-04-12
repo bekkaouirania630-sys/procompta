@@ -35,17 +35,40 @@ class InvoiceController extends Controller
             'lines.*.quantity' => 'required|numeric|min:1',
             'lines.*.price' => 'required|numeric|min:0',
             'lines.*.tva_rate' => 'required|numeric|min:0',
+            'lines.*.discount_rate' => 'sometimes|numeric|min:0|max:100',
+            'ht' => 'sometimes|numeric',
+            'tva' => 'sometimes|numeric',
+            'ttc' => 'sometimes|numeric',
+            'is_manual' => 'sometimes|boolean'
         ]);
 
         return DB::transaction(function () use ($validated, $companyId) {
-            $ht = 0;
-            $tva = 0;
+            $calculatedHt = 0;
+            $calculatedTva = 0;
 
             foreach ($validated['lines'] as $line) {
-                $lineHt = $line['quantity'] * $line['price'];
-                $lineTva = $lineHt * ($line['tva_rate'] / 100);
-                $ht += $lineHt;
-                $tva += $lineTva;
+                $qty = $line['quantity'];
+                $price = $line['price'];
+                $discountRate = $line['discount_rate'] ?? 0;
+                $tvaRate = $line['tva_rate'];
+
+                $lineHtBrut = $qty * $price;
+                $lineHtNet = $lineHtBrut * (1 - ($discountRate / 100));
+                $lineTva = $lineHtNet * ($tvaRate / 100);
+
+                $calculatedHt += $lineHtNet;
+                $calculatedTva += $lineTva;
+            }
+
+            // Trust manual values if is_manual is true, otherwise use calculated
+            if (!empty($validated['is_manual'])) {
+                $finalHt = $validated['ht'] ?? $calculatedHt;
+                $finalTva = $validated['tva'] ?? $calculatedTva;
+                $finalTtc = $validated['ttc'] ?? ($finalHt + finalTva);
+            } else {
+                $finalHt = $calculatedHt;
+                $finalTva = $calculatedTva;
+                $finalTtc = $calculatedHt + $calculatedTva;
             }
 
             $invoice = Invoice::create([
@@ -55,9 +78,9 @@ class InvoiceController extends Controller
                 'type' => $validated['type'],
                 'date' => $validated['date'],
                 'echeance' => $validated['echeance'],
-                'ht' => $ht,
-                'tva' => $tva,
-                'ttc' => $ht + $tva,
+                'ht' => $finalHt,
+                'tva' => $finalTva,
+                'ttc' => $finalTtc,
                 'statut' => 'en_attente',
             ]);
 
@@ -66,6 +89,8 @@ class InvoiceController extends Controller
                     'description' => $lineData['description'],
                     'quantity' => $lineData['quantity'],
                     'price' => $lineData['price'],
+                    'tva_rate' => $lineData['tva_rate'],
+                    'discount_rate' => $lineData['discount_rate'] ?? 0,
                 ]);
             }
 

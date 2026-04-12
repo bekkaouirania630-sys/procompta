@@ -166,5 +166,35 @@ class DatabaseSeeder extends Seeder
                 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
+
+        // 4. Bank Accounts seed (Configuration only)
+        $bankId = DB::table('bank_accounts')->insertGetId([
+            'company_id'      => $companyId,
+            'name'            => 'Compte Principal',
+            'bank_name'       => '',
+            'account_number'  => '',
+            'rib'             => '',
+            'opening_balance' => 0,
+            'current_balance' => 0,
+            'currency'        => 'MAD',
+            'type'            => 'banque',
+            'is_active'       => true,
+            'created_at'      => now(), 'updated_at' => now(),
+        ]);
+
+        $caisseId = DB::table('bank_accounts')->insertGetId([
+            'company_id'      => $companyId,
+            'name'            => 'Caisse Principale',
+            'bank_name'       => null,
+            'account_number'  => null,
+            'opening_balance' => 0,
+            'current_balance' => 0,
+            'currency'        => 'MAD',
+            'type'            => 'caisse',
+            'is_active'       => true,
+            'created_at'      => now(), 'updated_at' => now(),
+        ]);
+
+        // 5. No transactions for "Clean State"
     }
 }

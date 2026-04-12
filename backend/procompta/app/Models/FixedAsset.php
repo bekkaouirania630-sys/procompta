@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\BelongsToCompany;
 
 class FixedAsset extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany;
 
     protected $fillable = [
         'name',
@@ -20,8 +21,5 @@ class FixedAsset extends Model
         'company_id'
     ];
 
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
+
 }

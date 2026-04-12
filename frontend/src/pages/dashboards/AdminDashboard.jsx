@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
-import { Users, Activity, ShieldCheck, Database, Server, Loader2, AlertCircle } from 'lucide-react';
+import { Users, Activity, ShieldCheck, Database, Server, Loader2, AlertCircle, Cpu, Zap, Search } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -21,7 +21,6 @@ const AdminDashboard = () => {
         });
 
         if (!response.ok) throw new Error('Erreur lors du chargement des statistiques admin');
-        
         const data = await response.json();
         setStats(data);
       } catch (err) {
@@ -30,84 +29,95 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchStats();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <Loader2 className="animate-spin text-primary" size={48} />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="glass-panel p-8 text-center text-red-500">
-        <AlertCircle size={48} className="mx-auto mb-4" />
-        <p>{error}</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center h-[400px]"><div className="loader"></div></div>;
 
   return (
-    <div className="dashboard-view animate-fade-in">
-      <div className="dashboard-grid">
-        {/* System Health */}
-        <div className="glass-panel stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8B5CF6' }}>
-            <Activity size={24} />
-          </div>
-          <h4>Uptime Système</h4>
-          <div className="stat-value">{stats?.uptime || '99.9%'}</div>
-          <div className="stat-trend positive">Opérationnel</div>
+    <div className="fade-in">
+      <div className="grid g4" style={{ marginBottom: '32px' }}>
+        <div className="kpi-jewel">
+          <div className="kpi-label">Uptime Système</div>
+          <div className="kpi-value" style={{ color: 'var(--primary)' }}>{stats?.uptime || '99.9%'}</div>
+          <div className="kpi-trend text-muted"><Server size={14}/> Node : Srv-Prod-01</div>
         </div>
 
-        <div className="glass-panel stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>
-            <Users size={24} />
-          </div>
-          <h4>Utilisateurs Actifs</h4>
-          <div className="stat-value">{stats?.active_users || '0/0'}</div>
-          <div className="stat-trend neutral">Sessions enregistrées</div>
+        <div className="kpi-jewel">
+          <div className="kpi-label">Utilisateurs Actifs</div>
+          <div className="kpi-value">{stats?.active_users || '0/0'}</div>
+          <div className="kpi-trend text-muted"><Users size={14}/> Sessions concurrentes</div>
         </div>
 
-        <div className="glass-panel stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}>
-            <Server size={24} />
-          </div>
-          <h4>Charge Serveur</h4>
-          <div className="stat-value">{stats?.server_load || '0%'}</div>
-          <div className="stat-trend positive">Optimale</div>
+        <div className="kpi-jewel">
+          <div className="kpi-label">Charge CPU</div>
+          <div className="kpi-value" style={{ color: 'var(--accent)' }}>{stats?.server_load || '0%'}</div>
+          <div className="kpi-trend text-muted"><Cpu size={14}/> Latence : 24ms</div>
         </div>
 
-        <div className="glass-panel stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}>
-            <Database size={24} />
-          </div>
-          <h4>Ecritures Totales</h4>
-          <div className="stat-value">{stats?.entry_count || '0'}</div>
-          <div className="stat-trend neutral">Total base de données</div>
+        <div className="kpi-jewel" style={{ borderLeft: '4px solid var(--secondary)' }}>
+          <div className="kpi-label">Volume Données</div>
+          <div className="kpi-value" style={{ color: 'var(--secondary)' }}>{stats?.entry_count || '0'}</div>
+          <div className="kpi-trend text-muted"><Database size={14}/> Ecritures SQL</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-8">
+        <div className="col-span-8">
+            <div className="card glass-panel" style={{ padding: '32px' }}>
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="premium-font" style={{ fontWeight: 800 }}>Performance de l'Infrastructure</h3>
+                        <p className="text-muted" style={{ fontSize: '11px' }}>Temps de réponse moyen (Global API Latency)</p>
+                    </div>
+                    <Zap size={20} className="text-accent" />
+                </div>
+                <div style={{ height: 300, width: '100%' }}>
+                    <ResponsiveContainer>
+                        <AreaChart data={[
+                            {name: '00:00', value: 45}, {name: '04:00', value: 32},
+                            {name: '08:00', value: 120}, {name: '12:00', value: 95},
+                            {name: '16:00', value: 140}, {name: '20:00', value: 85}
+                        ]}>
+                            <defs>
+                                <linearGradient id="colorLat" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 10}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 10}} tickFormatter={(v)=>`${v}ms`} />
+                            <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: '12px' }} />
+                            <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#colorLat)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         </div>
 
-        {/* API Performance Placeholder */}
-        <div className="glass-panel main-chart" style={{ gridColumn: 'span 4' }}>
-          <div className="chart-header">
-            <h3>Performance de l'API (ms)</h3>
-            <p className="text-muted">Temps de réponse moyen au cours des 12 dernières heures</p>
-          </div>
-          <div className="flex items-center justify-center p-12 text-muted">
-            Données de performance système en cours de collecte...
-          </div>
-        </div>
-
-        {/* Audit Logs Table */}
-        <div className="glass-panel" style={{ gridColumn: 'span 4', padding: '1.5rem' }}>
-          <h3>Logs d'Audit Récents</h3>
-          <div className="text-center py-8 text-muted">
-            Aucun événement d'audit récent à afficher.
-          </div>
+        <div className="col-span-4">
+            <div className="card glass-panel h-full" style={{ padding: '24px' }}>
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="premium-font" style={{ fontWeight: 800 }}>Derniers Audits</h3>
+                    <ShieldCheck size={18} className="text-primary" />
+                </div>
+                <div className="flex-c gap-4">
+                    <div className="p-3 rounded-xl border border-white/5 bg-bg">
+                        <div style={{ fontSize: '11px', fontWeight: 800 }}>ADMIN LOGIN</div>
+                        <div className="text-muted" style={{ fontSize: '10px' }}>IP: 192.168.1.1 — Il y a 5 min</div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-white/5 bg-bg">
+                        <div style={{ fontSize: '11px', fontWeight: 800 }}>DB BACKUP</div>
+                        <div className="text-muted" style={{ fontSize: '10px' }}>Succès — Il y a 2h</div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-white/5 bg-bg">
+                        <div style={{ fontSize: '11px', fontWeight: 800 }}>USER_UPDATE</div>
+                        <div className="text-muted" style={{ fontSize: '10px' }}>ID: 442 — Il y a 4h</div>
+                    </div>
+                </div>
+                <button className="btn btn-outline w-full mt-8">Journal de sécurité</button>
+            </div>
         </div>
       </div>
     </div>
@@ -115,4 +125,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

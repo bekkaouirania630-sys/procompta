@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Company extends Model
 {
-    protected $fillable = ['name', 'ice', 'adresse'];
+    protected $fillable = [
+        'name', 'ice', 'if', 'rc', 'patente', 'cnss', 'address', 
+        'phone', 'email', 'ville', 'logo', 'tva_regime', 
+        'compta_method', 'currency'
+    ];
 
     public function users()
     {

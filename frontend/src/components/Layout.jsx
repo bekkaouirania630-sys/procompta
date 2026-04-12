@@ -1,100 +1,192 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, FileText, ScanLine,
-  Users, Landmark, UserCog, BarChart3, TrendingUp,
+  Users, Landmark, UserCog, BarChart3,
   Wallet, BookMarked, Settings, LogOut, ChevronLeft,
   ChevronRight, Bell, Search, Building2, ChevronDown,
-  Calculator
+  Calculator, AlertTriangle, Clock, Info, X, CheckCircle,
+  Banknote, Sparkles, History
 } from 'lucide-react';
+
+const API = 'http://localhost:8000/api';
 
 const MENU_SECTIONS = [
   {
-    label: 'PRINCIPAL',
+    label: 'Principal',
     items: [
       { id: 'dashboard',    icon: LayoutDashboard, label: 'Tableau de bord', path: '/dashboard' },
     ]
   },
   {
-    label: 'COMPTABILITÉ',
+    label: 'Finance',
     items: [
       { id: 'comptabilite', icon: BookOpen,         label: 'Saisie & Livres', path: '/comptabilite' },
-      { id: 'factures',     icon: FileText,         label: 'Factures',        path: '/factures' },
+      { id: 'factures',     icon: FileText,         label: 'Facturation',     path: '/factures' },
       { id: 'tresorerie',   icon: Landmark,         label: 'Trésorerie',      path: '/tresorerie' },
-      { id: 'budget',       icon: Wallet,           label: 'Budget',          path: '/budget' },
+      { id: 'budget',       icon: Wallet,           label: 'Budgets',         path: '/budget' },
     ]
   },
   {
-    label: 'FISCALITÉ & RH',
+    label: 'Expertise',
     items: [
-      { id: 'fiscalite',    icon: Calculator,       label: 'Fiscalité TVA',   path: '/fiscalite' },
+      { id: 'fiscalite',    icon: Calculator,       label: 'Fiscalité / TVA', path: '/fiscalite' },
       { id: 'rh',           icon: UserCog,          label: 'RH & Paie',       path: '/rh' },
+      { id: 'ocr',          icon: ScanLine,         label: 'Intelligence OCR', path: '/ocr' },
     ]
   },
   {
-    label: 'OUTILS',
+    label: 'Ressources',
     items: [
-      { id: 'ocr',          icon: ScanLine,         label: 'OCR / Import',    path: '/ocr' },
       { id: 'plan-tiers',   icon: Users,            label: 'Plan Tiers',      path: '/plan-tiers' },
-      { id: 'reporting',    icon: BarChart3,         label: 'Reporting',       path: '/reporting' },
+      { id: 'reporting',    icon: BarChart3,         label: 'Analytique',      path: '/reporting' },
       { id: 'journaux',     icon: BookMarked,        label: 'Codes Journaux',  path: '/journaux' },
+    ]
+  },
+  {
+    label: 'Sécurité',
+    items: [
+      { id: 'audit-log',    icon: History,           label: 'Journal d\'Audit', path: '/audit-log' },
     ]
   },
 ];
 
+const NotifIcon = ({ type, icon }) => {
+  if (icon === 'invoice' || type === 'warning')
+    return <AlertTriangle size={14} className="text-warning" />;
+  if (icon === 'tva')
+    return <Calculator size={14} className="text-info" />;
+  return <Info size={14} style={{ color: 'var(--primary)' }} />;
+};
+
 export default function Layout() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed]       = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [notifOpen, setNotifOpen]       = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notifCount, setNotifCount]     = useState(0);
+  const [companies, setCompanies]       = useState([]);
+  const [currentCompany, setCurrentCompany] = useState(null);
+  const [user, setUser]                 = useState({ name: 'Chargeant...', role: 'Vérification', avatar: 'U' });
+  const notifRef = useRef(null);
+  const userRef  = useRef(null);
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  const getHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Accept': 'application/json',
+  });
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`${API}/notifications`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+        setNotifCount(data.count || 0);
+      }
+    } catch (e) {}
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch(`${API}/companies`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : [];
+        setCompanies(arr);
+        if (arr.length > 0 && !currentCompany) setCurrentCompany(arr[0]);
+      }
+    } catch (e) {}
+  };
+
+  const fetchMe = async () => {
+    try {
+      const res = await fetch(`${API}/auth/me`, { headers: getHeaders() });
+      if (res.ok) {
+        const me = await res.json();
+        setUser({
+          name: me.name || 'Admin',
+          role: me.role?.name || 'Administrateur',
+          avatar: (me.name || 'A').charAt(0).toUpperCase(),
+        });
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchCompanies();
+    fetchMe();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target)) setUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
   };
 
-  const allItems = MENU_SECTIONS.flatMap(s => s.items);
-  const currentMenu = allItems.find(m => location.pathname.startsWith(m.path)) || allItems[0];
+  const allItems = MENU_SECTIONS.flatMap(s => s.items).concat([
+    { id: 'parametres', icon: Settings, label: 'Paramètres', path: '/parametres' }
+  ]);
+  const currentMenu = allItems.find(m => location.pathname.startsWith(m.path)) || { label: 'Système' };
 
   return (
     <div id="app">
       {/* ── Sidebar ── */}
       <aside id="sidebar" className={collapsed ? 'collapsed' : ''}>
-        {/* Logo */}
         <div className="sb-logo">
           <div className="sb-logo-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18"/>
-            </svg>
+             <Sparkles size={20} fill="white" />
           </div>
           {!collapsed && (
             <div className="sb-logo-info">
               <div className="sb-logo-text">ProCompta</div>
-              <div className="sb-logo-sub">ERP Marocain · v2.0</div>
+              <div style={{ color: '#475569', fontSize: '10px', fontWeight: 800 }}>VERSION EXECUTIVE</div>
             </div>
           )}
-          <button className="sb-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? 'Développer' : 'Réduire'}>
-            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
         </div>
 
-        {/* Company selector */}
         {!collapsed && (
-          <div className="sb-company">
-            <Building2 size={13} className="sb-company-icon" />
-            <select className="sb-company-select" id="societe-select">
-              <option>ALFA SARL</option>
-              <option>BETA SA</option>
-              <option>GAMMA SARLAU</option>
-            </select>
-            <ChevronDown size={12} className="sb-company-chevron" />
+          <div style={{ padding: '20px 16px 0' }}>
+            <div className="glass-panel" style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Building2 size={12} style={{ color: '#64748B' }}/>
+                <select
+                  style={{
+                    background: 'transparent', border: 'none', color: '#CBD5E1', fontSize: '11px', fontWeight: 700, width: '100%', outline: 'none', cursor: 'pointer'
+                  }}
+                  id="societe-select"
+                  value={currentCompany?.id || ''}
+                  onChange={e => {
+                    const found = companies.find(c => String(c.id) === e.target.value);
+                    setCurrentCompany(found || null);
+                    localStorage.setItem('company_id', e.target.value);
+                    window.dispatchEvent(new Event('company-changed'));
+                  }}
+                >
+                  {companies.map(c => <option key={c.id} value={c.id} style={{ background: '#0F172A' }}>{c.name}</option>)}
+                </select>
+                <ChevronDown size={10} style={{ color: '#64748B' }}/>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Navigation sections */}
         <nav className="sb-nav">
           {MENU_SECTIONS.map((section) => (
-            <div key={section.label} className="sb-section">
+            <div key={section.label}>
               {!collapsed && <div className="sb-section-label">{section.label}</div>}
               {section.items.map(m => {
                 const Icon = m.icon;
@@ -104,11 +196,9 @@ export default function Layout() {
                     key={m.id}
                     className={`sb-item ${isActive ? 'active' : ''}`}
                     onClick={() => navigate(m.path)}
-                    title={collapsed ? m.label : undefined}
                   >
-                    <span className="sb-item-icon"><Icon size={16} /></span>
-                    {!collapsed && <span className="sb-item-label">{m.label}</span>}
-                    {!collapsed && isActive && <span className="sb-item-dot" />}
+                    <span className="sb-item-icon"><Icon size={18}/></span>
+                    {!collapsed && <span>{m.label}</span>}
                   </button>
                 );
               })}
@@ -116,82 +206,120 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Bottom actions */}
-        <div className="sb-footer">
-          <button
-            className="sb-item"
-            onClick={() => navigate('/parametres')}
-            title={collapsed ? 'Paramètres' : undefined}
-          >
-            <span className="sb-item-icon"><Settings size={16} /></span>
-            {!collapsed && <span className="sb-item-label">Paramètres</span>}
+        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <button className={`sb-item ${location.pathname==='/parametres'?'active':''}`} onClick={() => navigate('/parametres')}>
+            <span className="sb-item-icon"><Settings size={18}/></span>
+            {!collapsed && <span>Paramètres</span>}
           </button>
-          <button
-            className="sb-item sb-item-danger"
-            onClick={handleLogout}
-            title={collapsed ? 'Déconnexion' : undefined}
-          >
-            <span className="sb-item-icon"><LogOut size={16} /></span>
-            {!collapsed && <span className="sb-item-label">Déconnexion</span>}
+          <button className="sb-item" onClick={handleLogout} style={{ color: '#EF4444' }}>
+            <span className="sb-item-icon"><LogOut size={18}/></span>
+            {!collapsed && <span>Déconnexion</span>}
           </button>
         </div>
       </aside>
 
-      {/* ── Main Content ── */}
+      {/* ── Main ── */}
       <div id="main">
-        {/* Topbar */}
         <header id="topbar">
           <div className="tb-left">
+            <button 
+              onClick={() => setCollapsed(!collapsed)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginRight: '12px' }}
+            >
+              {collapsed ? <ChevronRight size={20}/> : <ChevronLeft size={20}/>}
+            </button>
             <div className="tb-breadcrumb">
-              <span className="tb-company-name">ALFA SARL</span>
+              <span className="tb-company-name">{currentCompany?.name || 'Sélection...'}</span>
               <span className="tb-sep">/</span>
-              <span className="tb-page-name">{currentMenu.label}</span>
+              <span className="tb-page-name premium-font">{currentMenu.label}</span>
             </div>
           </div>
 
           <div className="tb-center">
             <div className="tb-search">
-              <Search size={14} className="tb-search-icon" />
-              <input type="text" placeholder="Rechercher..." className="tb-search-input" />
-              <kbd className="tb-search-kbd">⌘K</kbd>
+              <Search size={16} style={{ color: 'var(--text-dim)' }}/>
+              <input type="text" placeholder="Recherche rapide (⌘K)" className="tb-search-input"/>
             </div>
           </div>
 
           <div className="tb-right">
-            <span className="tb-date">
-              {new Date().toLocaleDateString('fr-MA', { weekday: 'short', day: 'numeric', month: 'short' })}
-            </span>
-            <button className="tb-icon-btn" onClick={() => navigate('/factures')} title="Notifications">
-              <Bell size={16} />
-              <span className="tb-notif-dot" />
-            </button>
-            <div className="tb-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
-              <div className="tb-avatar">A</div>
-              {!collapsed && (
-                <div className="tb-user-info">
-                  <div className="tb-user-name">Admin</div>
-                  <div className="tb-user-role">Comptable</div>
+            <div ref={notifRef} style={{ position: 'relative' }}>
+              <button className="tb-icon-btn" onClick={() => setNotifOpen(!notifOpen)}>
+                <Bell size={18}/>
+                {notifCount > 0 && (
+                  <span style={{
+                    position:'absolute', top:'-2px', right:'-2px',
+                    background:'var(--danger)', borderRadius:'50%',
+                    width:'16px', height:'16px', fontSize:'9px',
+                    fontWeight:900, color:'#fff',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    border: '2px solid #fff'
+                  }}>
+                    {notifCount}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="glass-panel" style={{
+                  position:'absolute', top:'calc(100% + 12px)', right:0,
+                  width:'360px', maxHeight:'500px', overflowY:'auto',
+                  zIndex:1000, padding: '0'
+                }}>
+                  <div style={{ padding:'16px', borderBottom:'1px solid var(--border-light)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span className="premium-font" style={{fontWeight:800, fontSize:'14px'}}>Notifications</span>
+                    <span className="badge badge-danger">{notifCount} Urgent</span>
+                  </div>
+                  <div style={{ padding: '8px 0' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding:'40px', textAlign:'center', color:'var(--text-dim)', fontSize:'13px' }}>
+                        <CheckCircle size={32} style={{ margin:'0 auto 10px', color: 'var(--primary)', opacity: 0.5 }}/>
+                        <div>Aucune notification</div>
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div key={notif.id} className="sb-item" style={{ borderRadius: 0, color: 'var(--text-main)', padding: '12px 16px', borderBottom: '1px solid var(--bg)' }} onClick={() => { navigate(notif.link); setNotifOpen(false); }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px' }}>
+                            <NotifIcon type={notif.type} icon={notif.icon}/>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px' }}>{notif.title}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{notif.message}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
-              <ChevronDown size={12} className="tb-user-chevron" />
+            </div>
+
+            <div ref={userRef} className="tb-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+              <div className="tb-avatar">{user.avatar}</div>
+              <div style={{ textAlign: 'right', display: collapsed ? 'none' : 'block' }}>
+                <div className="tb-user-name">{user.name}</div>
+                <div className="tb-user-role">{user.role}</div>
+              </div>
+              <ChevronDown size={14} style={{ color: 'var(--text-dim)' }}/>
+              
               {userMenuOpen && (
-                <div className="tb-user-dropdown">
-                  <div className="tb-dropdown-item" onClick={() => navigate('/parametres')}>
-                    <Settings size={14} /> Mon profil
-                  </div>
-                  <div className="tb-dropdown-divider" />
-                  <div className="tb-dropdown-item danger" onClick={handleLogout}>
-                    <LogOut size={14} /> Déconnexion
-                  </div>
+                <div className="glass-panel" style={{ position: 'absolute', top: 'calc(100% + 12px)', right: 0, width: 200, padding: 8 }}>
+                  <button className="sb-item" style={{ color: 'var(--text-main)' }} onClick={() => navigate('/parametres')}>
+                    <UserCog size={14}/> Profil
+                  </button>
+                  <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 0' }}/>
+                  <button className="sb-item" style={{ color: 'var(--danger)' }} onClick={handleLogout}>
+                    <LogOut size={14}/> Déconnexion
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        <div id="content">
-          <Outlet />
-        </div>
+        <main id="content" className="fade-in">
+          <Outlet/>
+        </main>
       </div>
     </div>
   );

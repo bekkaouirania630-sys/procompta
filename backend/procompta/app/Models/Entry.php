@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
 class Entry extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany, Auditable;
 
     protected $fillable = [
+        'company_id',
         'journal_id',
         'date',
         'description',
@@ -23,6 +25,12 @@ class Entry extends Model
     }
 
     public function entryLines()
+    {
+        return $this->hasMany(EntryLine::class);
+    }
+
+    // snake_case alias for API consistency
+    public function entry_lines()
     {
         return $this->hasMany(EntryLine::class);
     }

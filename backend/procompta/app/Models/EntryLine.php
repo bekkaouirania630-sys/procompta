@@ -12,10 +12,21 @@ class EntryLine extends Model
     protected $fillable = [
         'entry_id',
         'account_id',
+        'bank_transaction_id',
         'label',
         'debit',
-        'credit'
+        'credit',
+        'is_reconciled'
     ];
+
+    protected $casts = [
+        'is_reconciled' => 'boolean',
+    ];
+
+    public function bankTransaction()
+    {
+        return $this->belongsTo(BankTransaction::class);
+    }
 
     public function entry()
     {
