@@ -1,10 +1,15 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useData } from '../context/DataContext';
+import {
+  useAccounts, useJournals, useEntries,
+  useCreateEntry, useUpdateEntry, useUpdateEntryStatus, useDeleteEntry,
+  useCreateAccount, useUpdateAccount, useDeleteAccount
+} from '../hooks/useAccounting';
 import {
   BookOpen, Search, Calendar, Filter, Plus, Trash2,
   CheckCircle2, AlertCircle, Edit, Upload, Loader2,
   ChevronDown, ChevronRight, CheckCheck, Clock,
-  MoreVertical, Eye, EyeOff, ArrowUpDown, X
+  MoreVertical, Eye, EyeOff, ArrowUpDown, X,
+  TrendingUp, TrendingDown, Layers, Sparkles, AlertTriangle
 } from 'lucide-react';
 
 const API = 'http://localhost:8000/api';
@@ -24,44 +29,27 @@ const getSens = (type) => {
 function StatusBadge({ status }) {
   if (status === 'validee') {
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-        background: 'var(--green-light)', color: 'var(--green-dark)',
-        border: '1px solid var(--green-mid)',
-      }}>
-        <CheckCheck size={11} /> validée
+      <span className="badge badge-success" style={{ gap: 6, padding: '4px 12px' }}>
+        <CheckCheck size={12} /> validée
       </span>
     );
   }
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-      background: 'var(--amber-light)', color: 'var(--amber-dark)',
-      border: '1px solid #FCD34D',
-    }}>
-      <Clock size={11} /> brouillon
+    <span className="badge badge-warning" style={{ gap: 6, padding: '4px 12px' }}>
+      <Clock size={12} /> brouillon
     </span>
   );
 }
 
 /* ── Journal badge ── */
 function JournalBadge({ code }) {
-  const colors = {
-    VTE: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
-    ACH: { bg: '#FDF4FF', color: '#7E22CE', border: '#E9D5FF' },
-    BQ:  { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
-    CS:  { bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
-    OD:  { bg: '#FFF1F2', color: '#9F1239', border: '#FECDD3' },
-  };
-  const c = colors[code] || { bg: 'var(--surface3)', color: 'var(--text2)', border: 'var(--border)' };
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-      background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+    <span className="badge badge-gray" style={{
+      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 800,
       fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.04em',
+      border: '1px solid var(--border-light)',
+      background: 'var(--surface-mut)',
+      color: 'var(--text-dim)'
     }}>
       {code}
     </span>
@@ -69,8 +57,28 @@ function JournalBadge({ code }) {
 }
 
 export default function Comptabilite() {
-  const { data, loading, refresh } = useData();
   const [activeTab, setActiveTab] = useState('journal');
+
+  // React Query Hooks
+  const { data: accountsData, isLoading: loadingAccounts } = useAccounts();
+  const { data: journalsData, isLoading: loadingJournals } = useJournals();
+  const { data: entriesData, isLoading: loadingEntries, refetch: refetchEntries } = useEntries();
+  const refetch = refetchEntries; // Keep a reference to refresh for manual syncs if needed
+
+  const accounts = accountsData || [];
+  const journals = journalsData || [];
+  const entries = entriesData || [];
+
+  const loading = loadingAccounts || loadingJournals || loadingEntries;
+
+  // Mutations
+  const createEntryMutation = useCreateEntry();
+  const updateEntryMutation = useUpdateEntry();
+  const updateEntryStatusMutation = useUpdateEntryStatus();
+  const deleteEntryMutation = useDeleteEntry();
+  const createAccountMutation = useCreateAccount();
+  const updateAccountMutation = useUpdateAccount();
+  const deleteAccountMutation = useDeleteAccount();
 
   /* ── Journal filters ── */
   const [selectedJournal, setSelectedJournal] = useState('');
@@ -111,19 +119,19 @@ export default function Comptabilite() {
   /* ════════════════════ COMPUTED DATA ════════════════════ */
 
   const journalEntries = useMemo(() => {
-    return data.entries.filter(e => {
+    return entries.filter(e => {
       const matchJournal = selectedJournal ? e.journal_id?.toString() === selectedJournal : true;
       const matchMonth   = selectedMonth   ? e.date?.startsWith(selectedMonth)           : true;
       const matchStatus  = selectedStatus  ? e.status === selectedStatus                  : true;
       return matchJournal && matchMonth && matchStatus;
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [data.entries, selectedJournal, selectedMonth, selectedStatus]);
+  }, [entries, selectedJournal, selectedMonth, selectedStatus]);
 
   const grandLivreData = useMemo(() => {
     if (!glAccountId) return [];
     let runningBalance = 0;
     const movements = [];
-    data.entries.forEach(entry => {
+    entries.forEach(entry => {
       entry.entry_lines?.forEach(line => {
         if (line.account_id?.toString() === glAccountId) {
           movements.push({
@@ -138,12 +146,12 @@ export default function Comptabilite() {
       runningBalance += (m.debit - m.credit);
       return { ...m, balance: runningBalance };
     });
-  }, [data.entries, glAccountId]);
+  }, [entries, glAccountId]);
 
   const balanceData = useMemo(() => {
     const accMap = {};
-    data.accounts.forEach(acc => { accMap[acc.id] = { ...acc, totalDebit: 0, totalCredit: 0 }; });
-    data.entries.forEach(entry => {
+    accounts.forEach(acc => { accMap[acc.id] = { ...acc, totalDebit: 0, totalCredit: 0 }; });
+    entries.forEach(entry => {
       entry.entry_lines?.forEach(line => {
         if (accMap[line.account_id]) {
           accMap[line.account_id].totalDebit  += parseFloat(line.debit)  || 0;
@@ -153,7 +161,7 @@ export default function Comptabilite() {
     });
     return Object.values(accMap).filter(a => a.totalDebit > 0 || a.totalCredit > 0)
                                 .sort((a, b) => a.number.localeCompare(b.number));
-  }, [data.accounts, data.entries]);
+  }, [accounts, entries]);
 
   const pcmGroups = useMemo(() => {
     const classes = [
@@ -163,13 +171,13 @@ export default function Comptabilite() {
       { id: '7', label: 'COMPTES DE PRODUITS' },
     ];
     return classes.map(cls => {
-      const accounts = data.accounts
+      const accountsList = accounts
         .filter(a => a.number.startsWith(cls.id))
         .filter(a => !pcmSearch || a.number.includes(pcmSearch) || a.label.toLowerCase().includes(pcmSearch.toLowerCase()))
         .sort((a, b) => a.number.localeCompare(b.number));
-      return { ...cls, accounts };
+      return { ...cls, accounts: accountsList };
     }).filter(g => g.accounts.length > 0 || !pcmSearch);
-  }, [data.accounts, pcmSearch]);
+  }, [accounts, pcmSearch]);
 
   /* ════════════════════ JOURNAL STATS ════════════════════ */
   const journalStats = useMemo(() => {
@@ -225,25 +233,23 @@ export default function Comptabilite() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const url    = editingEntry
-        ? `${API}/accounting/entries/${editingEntry.id}`
-        : `${API}/accounting/entries`;
-      const method = editingEntry ? 'PUT' : 'POST';
-      const body   = {
+      const body = {
         ...entryForm,
         lines: entryForm.lines.filter(l => l.account_id && (parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0)),
       };
-      const resp = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
-      if (resp.ok) {
-        setIsModalOpen(false);
-        setEditingEntry(null);
-        setEntryForm(EMPTY_ENTRY);
-        refresh();
+      
+      if (editingEntry) {
+        await updateEntryMutation.mutateAsync({ id: editingEntry.id, ...body });
       } else {
-        const err = await resp.json();
-        setSubmitError(err.error || 'Erreur lors de la validation');
+        await createEntryMutation.mutateAsync(body);
       }
-    } catch (e) { setSubmitError(e.message); }
+      
+      setIsModalOpen(false);
+      setEditingEntry(null);
+      setEntryForm(EMPTY_ENTRY);
+    } catch (e) {
+      setSubmitError(e.response?.data?.error || e.message || 'Erreur lors de la validation');
+    }
     setSubmitting(false);
   };
 
@@ -252,12 +258,8 @@ export default function Comptabilite() {
   const handleStatusChange = async (entry, newStatus) => {
     setActionMenu(null);
     try {
-      await fetch(`${API}/accounting/entries/${entry.id}/status`, {
-        method: 'PATCH', headers: headers(),
-        body: JSON.stringify({ status: newStatus }),
-      });
-      refresh();
-    } catch (e) { alert(e.message); }
+      await updateEntryStatusMutation.mutateAsync({ id: entry.id, status: newStatus });
+    } catch (e) { alert(e.response?.data?.message || e.message); }
   };
 
   /* ════════════════════ DELETE ════════════════════ */
@@ -266,8 +268,7 @@ export default function Comptabilite() {
     setActionMenu(null);
     if (!window.confirm('Supprimer cette écriture et toutes ses lignes ?')) return;
     try {
-      await fetch(`${API}/accounting/entries/${id}`, { method: 'DELETE', headers: headers() });
-      refresh();
+      await deleteEntryMutation.mutateAsync(id);
     } catch (e) { alert(e.message); }
   };
 
@@ -281,26 +282,23 @@ export default function Comptabilite() {
 
   const handleAccountSubmit = async () => {
     setAccountError(null);
-    const url    = editingAccount ? `${API}/accounting/accounts/${editingAccount.id}` : `${API}/accounting/accounts`;
-    const method = editingAccount ? 'PUT' : 'POST';
     try {
-      const resp = await fetch(url, { method, headers: headers(), body: JSON.stringify(accountForm) });
-      if (resp.ok) {
-        setIsAccountModalOpen(false); setEditingAccount(null);
-        setAccountForm({ number: '', label: '', type: 'actif' }); refresh();
+      if (editingAccount) {
+        await updateAccountMutation.mutateAsync({ id: editingAccount.id, ...accountForm });
       } else {
-        const err = await resp.json();
-        setAccountError(err.error || 'Erreur');
+        await createAccountMutation.mutateAsync(accountForm);
       }
-    } catch (e) { setAccountError(e.message); }
+      setIsAccountModalOpen(false); setEditingAccount(null);
+      setAccountForm({ number: '', label: '', type: 'actif' });
+    } catch (e) { 
+      setAccountError(e.response?.data?.error || e.message || 'Erreur');
+    }
   };
 
   const handleAccountDelete = async (id) => {
     if (!window.confirm('Supprimer ce compte ?')) return;
     try {
-      const resp = await fetch(`${API}/accounting/accounts/${id}`, { method: 'DELETE', headers: headers() });
-      if (resp.ok) refresh();
-      else { const err = await resp.json(); alert(err.error || 'Erreur'); }
+      await deleteAccountMutation.mutateAsync(id);
     } catch (e) { alert(e.message); }
   };
 
@@ -312,7 +310,7 @@ export default function Comptabilite() {
       const resp = await fetch(`${API}/accounting/accounts/import`, {
         method: 'POST', headers: { 'Authorization': `Bearer ${token()}` }, body: formData,
       });
-      if (resp.ok) { alert('PCM importé avec succès !'); refresh(); }
+      if (resp.ok) { alert('PCM importé avec succès !'); refetch(); }
       else alert('Erreur lors de l\'importation');
     } catch (err) { alert(err.message); }
     finally { setImporting(false); }
@@ -351,7 +349,7 @@ export default function Comptabilite() {
       </div>
 
       {/* ── Tabs ── */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
+      <div className="glass-panel" style={{ display: 'inline-flex', gap: '4px', padding: '6px', borderRadius: '100px', marginBottom: '32px' }}>
         {[
           { id: 'journal',     label: 'Journal Centralisateur' },
           { id: 'grand-livre', label: 'Grand Livre' },
@@ -360,9 +358,9 @@ export default function Comptabilite() {
         ].map(t => (
             <button 
                 key={t.id} 
-                className={`btn ${activeTab === t.id ? 'btn-dark' : 'btn-outline'}`} 
+                className={`btn btn-xs ${activeTab === t.id ? 'btn-primary shadow-sm' : 'btn-ghost'}`} 
                 onClick={() => setActiveTab(t.id)}
-                style={{ borderRadius: '100px', fontSize: '12px' }}
+                style={{ borderRadius: '100px', fontSize: '12px', padding: '8px 24px', height: '40px' }}
             >
                 {t.label}
             </button>
@@ -382,7 +380,7 @@ export default function Comptabilite() {
                   style={{ border: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-main)', outline: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', width: 140 }}
                   value={selectedJournal} onChange={e => setSelectedJournal(e.target.value)}>
                   <option value="">Tous les journaux</option>
-                  {data.journals.map(j => <option key={j.id} value={j.id}>{j.code} — {j.name}</option>)}
+                  {journals.map(j => <option key={j.id} value={j.id}>{j.code} — {j.name}</option>)}
                 </select>
               </div>
               <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px', borderRadius: 100 }}>
@@ -404,22 +402,26 @@ export default function Comptabilite() {
             </div>
 
             {/* ── KPI Jewels ── */}
-            <div className="grid g4" style={{ marginBottom: '24px' }}>
+            <div className="grid g4" style={{ marginBottom: '32px' }}>
                 <div className="kpi-jewel">
-                    <div className="kpi-label">Volume Débit</div>
-                    <div className="kpi-value" style={{ color: 'var(--secondary)' }}>{fmt(journalStats.totalDebit)}</div>
+                    <div className="kpi-label">Volume Débit Total</div>
+                    <div className="kpi-value" style={{ color: 'var(--primary)' }}>{fmt(journalStats.totalDebit)} <span style={{ fontSize: 14 }}>MAD</span></div>
+                    <div className="kpi-trend"><TrendingUp size={14}/> Flux entrant centralisé</div>
                 </div>
                 <div className="kpi-jewel">
-                    <div className="kpi-label">Volume Crédit</div>
-                    <div className="kpi-value" style={{ color: 'var(--primary)' }}>{fmt(journalStats.totalCredit)}</div>
+                    <div className="kpi-label">Volume Crédit Total</div>
+                    <div className="kpi-value" style={{ color: 'var(--secondary)' }}>{fmt(journalStats.totalCredit)} <span style={{ fontSize: 14 }}>MAD</span></div>
+                    <div className="kpi-trend"><TrendingDown size={14}/> Flux sortant centralisé</div>
                 </div>
                 <div className="kpi-jewel">
-                    <div className="kpi-label">Validées</div>
-                    <div className="kpi-value">{journalStats.validées}</div>
+                    <div className="kpi-label">Écritures Validées</div>
+                    <div className="kpi-value" style={{ color: 'var(--success)' }}>{journalStats.validées}</div>
+                    <div className="kpi-trend text-success"><CheckCircle2 size={14}/> Certification complète</div>
                 </div>
-                <div className="kpi-jewel" style={{ borderLeft: '4px solid var(--accent)' }}>
-                    <div className="kpi-label">À Valider</div>
-                    <div className="kpi-value">{journalStats.brouillons}</div>
+                <div className="kpi-jewel" style={{ borderLeft: '4px solid var(--warning)' }}>
+                    <div className="kpi-label">Écritures en Brouillon</div>
+                    <div className="kpi-value" style={{ color: 'var(--warning)' }}>{journalStats.brouillons}</div>
+                    <div className="kpi-trend text-warning"><Clock size={14}/> Action requise</div>
                 </div>
             </div>
 
@@ -450,16 +452,16 @@ export default function Comptabilite() {
                             style={{ background: isExpanded ? 'var(--surface-mut)' : 'transparent', cursor: 'pointer' }}
                             className={isExpanded ? 'active' : ''}
                           >
-                            <td style={{ fontSize: 12, color: 'var(--text2)' }} onClick={() => setExpandedRow(isExpanded ? null : entry.id)}>
+                            <td style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600 }} onClick={() => setExpandedRow(isExpanded ? null : entry.id)}>
                               {fmtDate(entry.date)}
                             </td>
                             <td onClick={() => setExpandedRow(isExpanded ? null : entry.id)}>
-                              <span className="badge badge-gray" style={{ fontSize: 10 }}>{entry.journal?.code}</span>
+                              <JournalBadge code={entry.journal?.code} />
                             </td>
                             <td onClick={() => setExpandedRow(isExpanded ? null : entry.id)}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--blue)' }} />
-                                 <span className="num-font" style={{ fontWeight: 700, fontSize: 11, color: 'var(--blue)' }}>{entry.numero || `E-${entry.id}`}</span>
+                              <div className="flex items-center gap-2">
+                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', boxShadow: '0 0 10px var(--primary-glow)' }} />
+                                 <span className="num-font" style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-main)' }}>{entry.numero || `E-${entry.id}`}</span>
                               </div>
                             </td>
                             <td style={{ fontWeight: 500 }} onClick={() => setExpandedRow(isExpanded ? null : entry.id)}>
@@ -520,45 +522,48 @@ export default function Comptabilite() {
 
                           {isExpanded && (
                             <tr>
-                              <td colSpan={8} style={{ padding: 0, background: 'rgba(5,150,105,0.02)' }}>
-                                <div style={{ padding: '8px 40px 16px' }}>
-                                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                                    <thead>
-                                      <tr>
-                                        {['Compte', 'Libellé ligne', 'Débit', 'Crédit'].map((h, i) => (
-                                          <th key={i} style={{
-                                            padding: '10px', textAlign: i >= 2 ? 'right' : 'left',
-                                            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                                            letterSpacing: '0.07em', color: 'var(--text-dim)',
-                                            borderBottom: '1px solid var(--border-light)',
-                                          }}>{h}</th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {entry.entry_lines?.map((line, li) => (
-                                        <tr key={li} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-                                          <td style={{ padding: '10px' }}>
-                                            <span className="num-font" style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 12 }}>
-                                              {line.account?.number}
-                                            </span>
-                                            <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: 12 }}>
-                                              {line.account?.label}
-                                            </span>
-                                          </td>
-                                          <td style={{ padding: '10px', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                                            {line.label || '—'}
-                                          </td>
-                                          <td className="num-font" style={{ padding: '10px', textAlign: 'right', color: parseFloat(line.debit) > 0 ? 'var(--blue)' : 'var(--text-dim)', fontWeight: parseFloat(line.debit) > 0 ? 600 : 400 }}>
-                                            {parseFloat(line.debit) > 0 ? fmt(line.debit) : '—'}
-                                          </td>
-                                          <td className="num-font" style={{ padding: '10px', textAlign: 'right', color: parseFloat(line.credit) > 0 ? 'var(--primary)' : 'var(--text-dim)', fontWeight: parseFloat(line.credit) > 0 ? 600 : 400 }}>
-                                            {parseFloat(line.credit) > 0 ? fmt(line.credit) : '—'}
-                                          </td>
+                              <td colSpan={8} style={{ padding: 0, backgroundColor: 'var(--surface-mut)' }}>
+                                <div className="fade-in" style={{ padding: '24px 48px', borderLeft: '4px solid var(--primary)', background: 'linear-gradient(to right, var(--surface-mut), transparent)' }}>
+                                  <div className="flex items-center gap-2 mb-4">
+                                     <Layers size={14} className="text-primary" />
+                                     <span className="premium-font" style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Détail des écritures divisionnaires</span>
+                                  </div>
+                                  <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                                    <table className="tbl-premium" style={{ border: 'none' }}>
+                                      <thead style={{ background: 'var(--surface-real)' }}>
+                                        <tr>
+                                          {['Compte', 'Libellé de ligne', 'Débit', 'Crédit'].map((h, i) => (
+                                            <th key={i} style={{
+                                              padding: '12px 16px', textAlign: i >= 2 ? 'right' : 'left',
+                                              fontSize: 10, fontWeight: 900, textTransform: 'uppercase',
+                                              color: 'var(--text-dim)', border: 'none'
+                                            }}>{h}</th>
+                                          ))}
                                         </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                      </thead>
+                                      <tbody>
+                                        {entry.entry_lines?.map((line, li) => (
+                                          <tr key={li} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                            <td style={{ padding: '14px 16px' }}>
+                                              <div className="flex items-center gap-3">
+                                                 <span className="num-font" style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '13px' }}>{line.account?.number}</span>
+                                                 <span style={{ color: 'var(--text-main)', fontSize: '12px', fontWeight: 500 }}>{line.account?.label}</span>
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '14px 16px', color: 'var(--text-dim)', fontStyle: 'italic', fontSize: '12px' }}>
+                                              {line.label || '—'}
+                                            </td>
+                                            <td className="num-font" style={{ padding: '14px 16px', textAlign: 'right', color: parseFloat(line.debit) > 0 ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 800, fontSize: '13px' }}>
+                                              {parseFloat(line.debit) > 0 ? fmt(line.debit) : '—'}
+                                            </td>
+                                            <td className="num-font" style={{ padding: '14px 16px', textAlign: 'right', color: parseFloat(line.credit) > 0 ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 800, fontSize: '13px' }}>
+                                              {parseFloat(line.credit) > 0 ? fmt(line.credit) : '—'}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -582,7 +587,7 @@ export default function Comptabilite() {
                 <select className="form-select" style={{ border: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-main)', outline: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}
                   value={glAccountId} onChange={e => setGlAccountId(e.target.value)}>
                   <option value="">Sélectionner un compte comptable...</option>
-                  {data.accounts.map(a => <option key={a.id} value={a.id}>{a.number} — {a.label}</option>)}
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.number} — {a.label}</option>)}
                 </select>
               </div>
             </div>
@@ -796,104 +801,115 @@ export default function Comptabilite() {
                     <label className="premium-label">Journal</label>
                     <select className="premium-input" value={entryForm.journal_id} onChange={e => setEntryForm({ ...entryForm, journal_id: e.target.value })}>
                       <option value="">Choisir...</option>
-                      {data.journals.map(j => <option key={j.id} value={j.id}>{j.code} — {j.name}</option>)}
+                      {journals.map(j => <option key={j.id} value={j.id}>{j.code} — {j.name}</option>)}
                     </select>
                   </div>
                   <div className="premium-form-group">
                     <label className="premium-label">Date d'opération</label>
-                    <input type="date" className="premium-input" value={entryForm.date} onChange={e => setEntryForm({ ...entryForm, date: e.target.value })} />
+                    <input type="date" className="premium-input px-4" value={entryForm.date} onChange={e => setEntryForm({ ...entryForm, date: e.target.value })} />
                   </div>
                   <div className="premium-form-group">
-                    <label className="premium-label">Libellé Principal</label>
-                    <input className="premium-input" placeholder="ex : Facture F2024..." value={entryForm.description} onChange={e => setEntryForm({ ...entryForm, description: e.target.value })} />
+                    <label className="premium-label">Libellé Global (Header)</label>
+                    <input className="premium-input px-4" placeholder="ex : Achat Fournitures Bureaux..." value={entryForm.description} onChange={e => setEntryForm({ ...entryForm, description: e.target.value })} />
                   </div>
                   <div className="premium-form-group">
                     <label className="premium-label">Statut</label>
-                    <select className="premium-input" value={entryForm.status} onChange={e => setEntryForm({ ...entryForm, status: e.target.value })}>
+                    <select className="premium-input px-4" value={entryForm.status} onChange={e => setEntryForm({ ...entryForm, status: e.target.value })}>
                       <option value="brouillon">Brouillon</option>
                       <option value="validee">Validée</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="card" style={{ padding: 0, overflow: 'hidden', borderStyle: 'dashed' }}>
+                <div className="card" style={{ padding: 0, overflow: 'hidden', borderStyle: 'solid', background: '#fff', border: '1px solid var(--border-light)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: 'var(--surface-mut)' }}>
-                        {['Compte', 'Libellé ligne', 'Débit', 'Crédit', ''].map((h, i) => (
-                          <th key={i} style={{ padding: '12px 16px', textAlign: i >= 2 && i <= 3 ? 'right' : 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.05em' }}>{h}</th>
+                        {['Compte Comptable', 'Désignation de la ligne', 'Débit', 'Crédit', ''].map((h, i) => (
+                          <th key={i} style={{ padding: '16px', textAlign: i >= 2 && i <= 3 ? 'right' : 'left', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {entryForm.lines.map((line, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '12px 16px', width: '30%' }}>
-                            <select className="premium-input" style={{ padding: '8px 12px', fontSize: 13 }} value={line.account_id} onChange={e => handleLineChange(idx, 'account_id', e.target.value)}>
-                              <option value="">Compte...</option>
-                              {data.accounts.map(a => <option key={a.id} value={a.id}>{a.number} — {a.label}</option>)}
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }} className="hover:bg-surface-mut/30">
+                          <td style={{ padding: '12px 16px', width: '32%' }}>
+                            <select className="premium-input italic" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid transparent', background: 'var(--surface-mut)' }} value={line.account_id} onChange={e => handleLineChange(idx, 'account_id', e.target.value)}>
+                              <option value="">Chercher compte...</option>
+                              {accounts.map(a => <option key={a.id} value={a.id}>{a.number} — {a.label}</option>)}
                             </select>
                           </td>
-                          <td style={{ padding: '12px 16px', width: '30%' }}>
-                            <input className="premium-input" style={{ padding: '8px 12px', fontSize: 13 }} placeholder="Désignation..." value={line.label} onChange={e => handleLineChange(idx, 'label', e.target.value)} />
+                          <td style={{ padding: '12px 16px' }}>
+                            <input className="premium-input" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid transparent' }} placeholder="Commentaire..." value={line.label} onChange={e => handleLineChange(idx, 'label', e.target.value)} />
                           </td>
-                          <td style={{ padding: '12px 16px', width: '17%' }}>
-                            <input type="number" className="premium-input" style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: 'var(--secondary)' }} placeholder="0.00" value={line.debit} onChange={e => handleLineChange(idx, 'debit', e.target.value)} />
+                          <td style={{ padding: '12px 16px', width: '15%' }}>
+                            <input type="number" className="premium-input num-font" style={{ padding: '10px 14px', fontSize: '14px', textAlign: 'right', fontWeight: 800, color: 'var(--secondary)' }} placeholder="0.00" value={line.debit} onChange={e => handleLineChange(idx, 'debit', e.target.value)} />
                           </td>
-                          <td style={{ padding: '12px 16px', width: '17%' }}>
-                            <input type="number" className="premium-input" style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: 'var(--primary)' }} placeholder="0.00" value={line.credit} onChange={e => handleLineChange(idx, 'credit', e.target.value)} />
+                          <td style={{ padding: '12px 16px', width: '15%' }}>
+                            <input type="number" className="premium-input num-font" style={{ padding: '10px 14px', fontSize: '14px', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }} placeholder="0.00" value={line.credit} onChange={e => handleLineChange(idx, 'credit', e.target.value)} />
                           </td>
-                          <td style={{ padding: '12px 8px', width: '6%', textAlign: 'center' }}>
+                          <td style={{ padding: '12px 16px', width: '50px', textAlign: 'center' }}>
                             {entryForm.lines.length > 2 && (
-                              <button onClick={() => setEntryForm({ ...entryForm, lines: entryForm.lines.filter((_,i) => i !== idx) })} className="tb-icon-btn" style={{ width: 28, height: 28, border: 'none', background: 'var(--danger-glow)', color: 'var(--danger)' }}>
-                                <Trash2 size={14} />
-                              </button>
+                               <button onClick={() => setEntryForm({ ...entryForm, lines: entryForm.lines.filter((_,i) => i !== idx) })} className="tb-icon-btn text-danger hover:bg-danger-glow" style={{ width: 32, height: 32 }}>
+                                 <Trash2 size={14} />
+                               </button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ padding: '16px' }}>
-                    <button className="btn btn-outline btn-xs" onClick={() => setEntryForm({ ...entryForm, lines: [...entryForm.lines, { account_id:'', label:'', debit:'', credit:'' }] })}>
-                      <Plus size={14} /> Ajouter une ligne
+                  <div style={{ padding: '20px', background: 'var(--surface-mut)' }}>
+                    <button className="btn btn-outline btn-sm bg-white" style={{ borderRadius: '8px' }} onClick={() => setEntryForm({ ...entryForm, lines: [...entryForm.lines, { account_id:'', label:'', debit:'', credit:'' }] })}>
+                      <Plus size={16} /> Ajouter une imputation
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Right Side: Info Panel */}
-              <div className="side-info-panel">
-                <div>
-                  <h4 className="premium-label" style={{ marginBottom: 16 }}>Résumé de l'Écriture</h4>
-                  <div className="flex-c gap-4">
-                    <div className="card glass-panel" style={{ padding: '16px', background: 'var(--secondary-glow)' }}>
-                      <span className="premium-label" style={{ fontSize: 9 }}>Total Débit</span>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--secondary)' }}>{fmt(totalDebit)} <span style={{fontSize:12}}>MAD</span></div>
+              <div className="side-info-panel" style={{ background: 'var(--surface-mut)', borderLeft: '1px solid var(--border-light)' }}>
+                <div className="flex flex-col gap-6">
+                  <div>
+                    <h4 className="premium-font mb-4" style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.05em' }}>Récapitulatif financier</h4>
+                    <div className="flex flex-col gap-3">
+                      <div className="card" style={{ padding: '16px', background: '#fff', border: '1px solid var(--border-light)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 800, textTransform: 'uppercase' }}>Total Débit</span>
+                        <div className="num-font" style={{ fontSize: '20px', fontWeight: 900, color: 'var(--secondary)' }}>{fmt(totalDebit)}</div>
+                      </div>
+                      <div className="card" style={{ padding: '16px', background: '#fff', border: '1px solid var(--border-light)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 800, textTransform: 'uppercase' }}>Total Crédit</span>
+                        <div className="num-font" style={{ fontSize: '20px', fontWeight: 900, color: 'var(--primary)' }}>{fmt(totalCredit)}</div>
+                      </div>
                     </div>
-                    <div className="card glass-panel" style={{ padding: '16px', background: 'var(--primary-glow)' }}>
-                      <span className="premium-label" style={{ fontSize: 9 }}>Total Crédit</span>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--primary)' }}>{fmt(totalCredit)} <span style={{fontSize:12}}>MAD</span></div>
-                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                      <div className={`card ${isBalanced ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-danger/10 border-danger/20'}`} style={{ padding: '24px', textAlign: 'center', transition: 'all 0.3s' }}>
+                          {isBalanced ? <CheckCheck size={32} className="mx-auto mb-2 text-white" /> : <AlertTriangle size={32} className="mx-auto mb-2 text-danger" />}
+                          <div style={{ fontWeight: 900, fontSize: '14px', color: isBalanced ? '#fff' : 'var(--danger)', textTransform: 'uppercase' }}>
+                            {isBalanced ? 'Équilibre OK' : 'Déséquilibre'}
+                          </div>
+                          {!isBalanced && (
+                             <p className="num-font" style={{ fontSize: '11px', marginTop: '8px', color: 'var(--danger)', fontWeight: 700 }}>
+                               Écart: {fmt(Math.abs(totalDebit - totalCredit))} MAD
+                             </p>
+                          )}
+                      </div>
+                      
+                      <button className="btn btn-primary w-full mt-6" style={{ height: '52px', borderRadius: '12px' }} disabled={!isBalanced || submitting} onClick={handleSubmit}>
+                          {submitting ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
+                          <span className="ml-3 font-bold">{editingEntry ? 'Mettre à jour' : 'Enregistrer l\'écriture'}</span>
+                      </button>
+                      <button className="btn btn-ghost w-full mt-3 text-dim" onClick={() => setIsModalOpen(false)}>Annuler</button>
                   </div>
                 </div>
 
-                <div className="mt-auto">
-                    <div className={`card ${isBalanced ? 'badge-success' : 'badge-danger'}`} style={{ padding: '20px', textAlign: 'center', border: 'none', background: isBalanced ? 'var(--primary-glow)' : 'var(--danger-glow)' }}>
-                        {isBalanced ? <CheckCircle2 size={32} className="mx-auto mb-2" /> : <AlertCircle size={32} className="mx-auto mb-2" />}
-                        <div style={{ fontWeight: 800 }}>{isBalanced ? 'ÉCRITURE ÉQUILIBRÉE' : 'NON ÉQUILIBRÉE'}</div>
-                        <p style={{ fontSize: 10, marginTop: 4, opacity: 0.8 }}>
-                            {isBalanced ? 'Prête pour validation comptable.' : `Écart de ${fmt(Math.abs(totalDebit - totalCredit))} MAD`}
-                        </p>
-                    </div>
-                    
-                    <button className="btn btn-primary w-full mt-6" style={{ height: 48 }} disabled={!isBalanced || submitting} onClick={handleSubmit}>
-                        {submitting ? <Loader2 size={20} className="animate-spin" /> : (editingEntry ? <Edit size={20} /> : <BookOpen size={20} />)}
-                        <span className="ml-2">{editingEntry ? 'Mettre à jour' : 'Valider l\'écriture'}</span>
-                    </button>
-                    <button className="btn btn-outline w-full mt-3" onClick={() => setIsModalOpen(false)}>
-                        Annuler
-                    </button>
+                <div className="mt-auto pt-8 border-t border-border-light text-center">
+                   <div className="flex items-center justify-center gap-2 text-muted">
+                      <Sparkles size={14} />
+                      <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Assist v2.0</span>
+                   </div>
                 </div>
               </div>
             </div>

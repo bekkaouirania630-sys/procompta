@@ -1,21 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useData } from '../context/DataContext';
+import { useDashboardStats } from '../hooks/useModules';
+import { useInvoices, useTiers } from '../hooks/useInvoicing';
+import { useJournals } from '../hooks/useAccounting';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
   Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, PieChart as PieIcon, Layers, FileCheck, ArrowUpRight, Plus, X, BookOpen, Loader2, Sparkles, Activity } from 'lucide-react';
+import { 
+  TrendingUp, TrendingDown, DollarSign, PieChart as PieIcon, 
+  Layers, FileCheck, ArrowUpRight, Plus, X, BookOpen, 
+  Loader2, Sparkles, Activity, Calculator 
+} from 'lucide-react';
 
 const Dashboard = () => {
-  const { data, loading } = useData();
   const navigate = useNavigate();
   const [showFastEntry, setShowFastEntry] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const { data: statsData, isLoading: loadingStats } = useDashboardStats();
+  const { data: invoices, isLoading: loadingInvoices } = useInvoices();
+  const { data: tiers, isLoading: loadingTiers } = useTiers();
+  const { data: journals, isLoading: loadingJournals } = useJournals();
+
+  const loading = loadingStats || loadingInvoices || loadingTiers || loadingJournals;
+
   if (loading) return <div className="flex items-center justify-center h-full"><span className="loader"></span></div>;
 
-  const stats = data?.stats || { ca: 0, charges: 0, tvaCollectee: 0, tvaDeductible: 0, resultat: 0 };
+  const stats = statsData || { ca: 0, charges: 0, tvaCollectee: 0, tvaDeductible: 0, resultat: 0 };
+  const invoicesList = invoices || [];
+  const tiersList = tiers || [];
+  const journalsList = journals || [];
   
   const caData = [
     { name: 'Jan', CA: 42000, Charges: 31000 },
@@ -27,9 +42,9 @@ const Dashboard = () => {
   ];
 
   const tvaData = [
-    { name: 'Collectée', value: stats.tvaCollectee || 35400, color: '#059669' },
+    { name: 'Collectée', value: stats.tvaCollectee || 35400, color: '#3B82F6' },
     { name: 'Déductible', value: stats.tvaDeductible || 12000, color: '#1E3A8A' },
-    { name: 'À payer', value: (stats.tvaCollectee - stats.tvaDeductible) || 23400, color: '#F59E0B' },
+    { name: 'À payer', value: (stats.tvaCollectee - stats.tvaDeductible) || 23400, color: '#6366F1' },
   ];
 
   const fmt = (n) => Number(n).toLocaleString('fr-MA', { minimumFractionDigits: 2 });
@@ -50,45 +65,61 @@ const Dashboard = () => {
       </div>
 
       {/* KPI Jewels */}
-      <div className="grid g4" style={{ marginBottom: '32px' }}>
-        <div className="kpi-jewel">
-          <div className="kpi-label">Volume d'affaires</div>
-          <div className="kpi-value">{fmt(stats.ca || 285300)} MAD</div>
+      <div className="grid g5" style={{ marginBottom: '32px' }}>
+        {/* Metric 1: Chiffre d'Affaires */}
+        <div className="kpi-jewel kpi-emerald">
+          <div className="kpi-label">Chiffre d'Affaires</div>
+          <div className="kpi-value">{fmt(stats.ca || 0)} MAD</div>
           <div className="kpi-trend trend-up">
-            <TrendingUp size={14}/> +12.5% vs Mo-1
+            <TrendingUp size={14}/> Performance brute
           </div>
           <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
              <DollarSign size={40} />
           </div>
         </div>
 
-        <div className="kpi-jewel" style={{ borderLeft: '4px solid var(--secondary)' }}>
-          <div className="kpi-label">Performance Net</div>
-          <div className="kpi-value">{fmt(stats.resultat || 86430)} MAD</div>
+        {/* Metric 2: Total Dépenses */}
+        <div className="kpi-jewel kpi-rose">
+          <div className="kpi-label">Total Dépenses</div>
+          <div className="kpi-value">{fmt(stats.charges || 0)} MAD</div>
+          <div className="kpi-trend trend-down">
+            <TrendingDown size={14}/> Charges d'exploitation
+          </div>
+          <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
+             <Activity size={40} />
+          </div>
+        </div>
+
+        {/* Metric 3: TVA à Déclarer */}
+        <div className="kpi-jewel kpi-sky">
+          <div className="kpi-label">TVA à Déclarer</div>
+          <div className="kpi-value">{fmt(Math.max(0, stats.tvaCollectee - stats.tvaDeductible) || 0)} MAD</div>
+          <div className="kpi-trend text-info">
+             Position fiscale nette
+          </div>
+          <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
+             <Calculator size={40} />
+          </div>
+        </div>
+
+        {/* Metric 4: Résultat Net */}
+        <div className="kpi-jewel kpi-indigo">
+          <div className="kpi-label">Résultat Net</div>
+          <div className="kpi-value">{fmt(stats.resultat || 0)} MAD</div>
           <div className="kpi-trend trend-up">
-            <TrendingUp size={14}/> 30% Marge Opé.
+            <Sparkles size={14}/> Bénéfice estimé
           </div>
           <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
              <Layers size={40} />
           </div>
         </div>
 
-        <div className="kpi-jewel">
-          <div className="kpi-label">Position Fiscale (TVA)</div>
-          <div className="kpi-value">{fmt(Math.max(0, stats.tvaCollectee - stats.tvaDeductible) || 23400)} MAD</div>
-          <div className="kpi-trend text-muted">
-            Solde à régulariser
-          </div>
-          <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
-             <PieIcon size={40} />
-          </div>
-        </div>
-
-        <div className="kpi-jewel">
+        {/* Metric 5: Factures Validées */}
+        <div className="kpi-jewel kpi-amber">
           <div className="kpi-label">Factures Validées</div>
-          <div className="kpi-value">{data.invoices.filter(f => f.statut === 'validée').length}</div>
+          <div className="kpi-value">{invoicesList.filter(f => f.statut === 'validée').length}</div>
           <div className="kpi-trend text-muted">
-             {data.invoices.filter(f => f.statut === 'en_attente').length} en attente
+             {invoicesList.filter(f => f.statut === 'en_attente').length} en attente
           </div>
           <div style={{ position: 'absolute', right: 24, bottom: 24, opacity: 0.1 }}>
              <FileCheck size={40} />
@@ -119,7 +150,7 @@ const Dashboard = () => {
                    cursor={{ stroke: 'var(--primary)', strokeWidth: 1 }}
                 />
                 <Area type="monotone" dataKey="CA" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorCA)" />
-                <Area type="monotone" dataKey="Charges" stroke="#E24B4A" strokeWidth={2} fill="transparent" strokeDasharray="5 5" />
+                <Area type="monotone" dataKey="Charges" stroke="#60A5FA" strokeWidth={2} fill="transparent" strokeDasharray="5 5" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -171,7 +202,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {data.invoices.slice(-6).reverse().map(invoice => (
+                {invoicesList.slice(-6).reverse().map(invoice => (
                   <tr key={invoice.id}>
                     <td className="premium-font" style={{ fontWeight: 700, color: 'var(--secondary)' }}>{invoice.numero}</td>
                     <td>{invoice.tier?.name || 'Inconnu'}</td>
@@ -248,7 +279,7 @@ const Dashboard = () => {
                     <label className="premium-label">Compte de contrepartie</label>
                     <select className="premium-input">
                         <option>Choisir un partenaire ou compte...</option>
-                        {data.tiers && data.tiers.map(t => <option key={t.id}>{t.name}</option>)}
+                        {tiersList.map(t => <option key={t.id}>{t.name}</option>)}
                     </select>
                   </div>
 
@@ -256,7 +287,7 @@ const Dashboard = () => {
                       <div className="premium-form-group mb-6">
                         <label className="premium-label">Journal</label>
                         <select className="premium-input">
-                            {data.journals && data.journals.filter(j => j.type === 'tresorerie').map(j => <option key={j.id}>{j.code} - {j.name}</option>)}
+                            {journalsList.filter(j => j.type === 'tresorerie').map(j => <option key={j.id}>{j.code} - {j.name}</option>)}
                         </select>
                       </div>
                       <div className="premium-form-group mb-6">

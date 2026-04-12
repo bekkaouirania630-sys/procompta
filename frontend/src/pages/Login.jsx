@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, BarChart3 } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
+import useCompanyStore from '../store/useCompanyStore';
+import axiosInstance from '../services/api/axiosInstance';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -9,26 +12,24 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const setAuth = useAuthStore(state => state.setAuth);
+  const setCompany = useCompanyStore(state => state.setCompany);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Identifiants incorrects');
-      localStorage.setItem('token', data.token);
+      const { data } = await axiosInstance.post('/auth/login', { email, password });
+      // Store auth in Zustand (also persists to localStorage via middleware)
+      setAuth(data.user, data.token);
+      // Store company if available
+      if (data.user?.company_id) {
+        setCompany(data.user.company_id, data.user?.company || null);
+      }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.response?.data?.message || 'Identifiants incorrects');
     }
     setLoading(false);
   };

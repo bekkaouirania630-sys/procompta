@@ -25,6 +25,7 @@ use App\Http\Controllers\API\BankTransactionController;
 use App\Http\Controllers\API\BankReconciliationController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\AuditController;
+use App\Http\Controllers\API\SearchController;
 
 Route::group([
     'prefix' => 'auth'
@@ -40,7 +41,8 @@ Route::group([
 
 // AJOUT DU MIDDLEWARE AUTH SANCTUM
 Route::middleware('auth:sanctum')->group(function () {
-    
+    Route::get('search', [SearchController::class, 'search']);
+
     // Entités Administratives
     Route::apiResource('companies', CompanyController::class);
     Route::apiResource('roles', RoleController::class);
@@ -57,6 +59,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('entries', EntryController::class);
         Route::patch('entries/{id}/status', [EntryController::class, 'updateStatus']);
         Route::apiResource('entry-lines', EntryLineController::class);
+        
+        // Reporting
+        Route::get('reports/balance', [\App\Http\Controllers\API\ReportingController::class, 'balance']);
+        Route::get('reports/grand-livre', [\App\Http\Controllers\API\ReportingController::class, 'grandLivre']);
+        Route::get('reports/bilan', [\App\Http\Controllers\API\ReportingController::class, 'bilan']);
+        Route::get('reports/tva', [\App\Http\Controllers\API\ReportingController::class, 'tvaDeclaration']);
+        Route::get('reports/cnss', [\App\Http\Controllers\API\ReportingController::class, 'cnssDeclaration']);
+        
+        // Exports
+        Route::get('exports/balance', [\App\Http\Controllers\API\ExportController::class, 'exportBalance']);
+        Route::get('exports/grand-livre', [\App\Http\Controllers\API\ExportController::class, 'exportGrandLivre']);
     });
 
     // Facturation / Tiers
@@ -79,10 +92,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('payslips', [PayslipController::class, 'index']);
     Route::post('payslips/generate', [PayslipController::class, 'generate']);
     Route::patch('payslips/{id}/status', [PayslipController::class, 'updateStatus']);
+    Route::apiResource('leave-requests', \App\Http\Controllers\API\LeaveController::class)->except(['show']);
 
     // Budget & Assets
     Route::apiResource('fixed-assets', FixedAssetController::class);
     Route::apiResource('budgets', BudgetController::class);
+
+    // Stock
+    Route::apiResource('products', \App\Http\Controllers\API\ProductController::class);
+    Route::apiResource('stock-movements', \App\Http\Controllers\API\StockMovementController::class)->only(['index', 'store']);
 
     // Trésorerie
     Route::get('bank-accounts/summary', [BankAccountController::class, 'summary']);

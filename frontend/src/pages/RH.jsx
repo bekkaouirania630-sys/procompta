@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { useData } from '../context/DataContext';
+import {
+  useEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee,
+  usePayslips, useGeneratePayslips, useValidatePayslip
+} from '../hooks/useModules';
 import {
   Users, UserPlus, CreditCard, Calendar, Briefcase,
   Download, Eye, Loader2, X, Edit2, UserX, CheckCircle,
   Clock, AlertCircle, Building, BadgeCheck, TrendingUp, Sparkles, Info
 } from 'lucide-react';
-
-const API = 'http://localhost:8000/api';
-const getHeaders = () => ({
-  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-  'Accept': 'application/json',
-  'Content-Type': 'application/json',
-});
 
 const CONTRACT_TYPES = ['CDI', 'CDD', 'Intérimaire', 'Stage', 'Contrat-Aidé'];
 const MONTHS = [
@@ -29,10 +25,22 @@ const INITIAL_EMPLOYEE = {
 };
 
 export default function RH() {
-  const { data, loading, refresh } = useData();
   const [activeTab, setActiveTab]     = useState('employees');
-  const [generating, setGenerating]   = useState(false);
-  const [saving, setSaving]           = useState(false);
+
+  // Queries
+  const { data: employeesData, isLoading: loadingEmployees } = useEmployees();
+  const { data: payslipsData, isLoading: loadingPayslips } = usePayslips();
+
+  const employees = employeesData || [];
+  const payslips = payslipsData || [];
+  const loading = loadingEmployees || loadingPayslips;
+
+  // Mutations
+  const createEmployeeMutation = useCreateEmployee();
+  const updateEmployeeMutation = useUpdateEmployee();
+  const deleteEmployeeMutation = useDeleteEmployee();
+  const generatePayslipsMutation = useGeneratePayslips();
+  const validatePayslipMutation = useValidatePayslip();
 
   // Payroll period
   const currentDate = new Date();
@@ -49,70 +57,38 @@ export default function RH() {
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
     setFormError('');
-    setSaving(true);
     try {
-      const res = await fetch(`${API}/employees`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(newEmployee),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(Object.values(data.errors || {}).flat().join(' | ') || data.message || 'Erreur');
-      } else {
-        setShowNewEmployee(false);
-        setNewEmployee(INITIAL_EMPLOYEE);
-        refresh();
-      }
-    } catch (e) { setFormError('Erreur réseau'); }
-    setSaving(false);
+      await createEmployeeMutation.mutateAsync(newEmployee);
+      setShowNewEmployee(false);
+      setNewEmployee(INITIAL_EMPLOYEE);
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Erreur de création');
+    }
   };
 
   const handleUpdateEmployee = async (e) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const res = await fetch(`${API}/employees/${showEditEmployee.id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify(showEditEmployee),
-      });
-      if (res.ok) {
-        setShowEditEmployee(null);
-        refresh();
-      }
+      await updateEmployeeMutation.mutateAsync(showEditEmployee);
+      setShowEditEmployee(null);
     } catch (e) {}
-    setSaving(false);
   };
 
   const handleDeleteEmployee = async (empId) => {
     if (!window.confirm('Confirmer la désactivation de ce salarié ?')) return;
-    await fetch(`${API}/employees/${empId}`, { method: 'DELETE', headers: getHeaders() });
-    refresh();
+    await deleteEmployeeMutation.mutateAsync(empId);
   };
 
   const handleGeneratePayroll = async () => {
-    setGenerating(true);
     try {
-      const res = await fetch(`${API}/payslips/generate`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ month: payMonth, year: payYear }),
-      });
-      const data = await res.json();
-      if (res.ok) refresh();
-      else alert(data.message || 'Erreur lors de la génération');
-    } catch (err) { console.error(err); }
-    setGenerating(false);
+      await generatePayslipsMutation.mutateAsync({ month: payMonth, year: payYear });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la génération');
+    }
   };
 
   const handleValidatePayslip = async (id) => {
-    await fetch(`${API}/payslips/${id}/status`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-      body: JSON.stringify({ status: 'validé' }),
-    });
-    refresh();
+    await validatePayslipMutation.mutateAsync(id);
   };
 
   return (
@@ -137,8 +113,8 @@ export default function RH() {
                 </div>
             )}
             {activeTab === 'payroll' ? (
-                <button className="btn btn-primary" onClick={handleGeneratePayroll} disabled={generating}>
-                    {generating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>}
+                <button className="btn btn-primary" onClick={handleGeneratePayroll} disabled={generatePayslipsMutation.isPending}>
+                    {generatePayslipsMutation.isPending ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>}
                     Calculer G.L.P
                 </button>
             ) : (
@@ -153,16 +129,16 @@ export default function RH() {
       <div className="grid g3" style={{ marginBottom: '32px' }}>
         <div className="kpi-jewel">
           <div className="kpi-label">Effectif Total</div>
-          <div className="kpi-value">{data.employees.length} <span style={{ fontSize: '14px', color:'var(--text-dim)' }}>SALARIÉS</span></div>
+          <div className="kpi-value">{employees.length} <span style={{ fontSize: '14px', color:'var(--text-dim)' }}>SALARIÉS</span></div>
           <div className="kpi-trend text-muted">
-            <Users size={14}/> {data.employees.filter(e => e.contract_type==='CDI').length} en CDI permanent
+            <Users size={14}/> {employees.filter(e => e.contract_type==='CDI').length} en CDI permanent
           </div>
         </div>
 
         <div className="kpi-jewel">
           <div className="kpi-label">Masse Salariale / Mois</div>
           <div className="kpi-value" style={{ color: 'var(--primary)' }}>
-            {fmt(data.employees.reduce((s, e) => s + parseFloat(e.base_salary || 0), 0))} <span style={{ fontSize: '14px' }}>MAD</span>
+            {fmt(employees.reduce((s, e) => s + parseFloat(e.base_salary || 0), 0))} <span style={{ fontSize: '14px' }}>MAD</span>
           </div>
           <div className="kpi-trend trend-up">
             <TrendingUp size={14}/> Provision Budgétaire OK
@@ -171,9 +147,9 @@ export default function RH() {
 
         <div className="kpi-jewel">
           <div className="kpi-label">Bulletins du mois</div>
-          <div className="kpi-value">{data.payslips.length} <span style={{ fontSize: '14px', color:'var(--text-dim)' }}>DOCS</span></div>
+          <div className="kpi-value">{payslips.length} <span style={{ fontSize: '14px', color:'var(--text-dim)' }}>DOCS</span></div>
           <div className="kpi-trend text-muted">
-            <BadgeCheck size={14} className="text-success"/> {data.payslips.filter(p => p.status === 'validé').length} validés
+            <BadgeCheck size={14} className="text-success"/> {payslips.filter(p => p.status === 'validé').length} validés
           </div>
         </div>
       </div>
@@ -215,14 +191,14 @@ export default function RH() {
                         </tr>
                     </thead>
                     <tbody>
-                        {loading && <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={24}/></td></tr>}
-                        {!loading && data.employees.length === 0 && (
+                        {loadingEmployees && <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={24}/></td></tr>}
+                        {!loadingEmployees && employees.length === 0 && (
                             <tr><td colSpan="6" style={{ padding: 60, textAlign: 'center' }} className="text-muted">
                                 <Users size={32} style={{ margin: '0 auto 12px', opacity: 0.2, display: 'block' }} />
                                 Aucun salarié enregistré dans la base de données.
                             </td></tr>
                         )}
-                        {data.employees.map(emp => (
+                        {employees.map(emp => (
                             <tr key={emp.id}>
                                 <td>
                                     <div className="flex" style={{ gap: '12px', alignItems: 'center' }}>
@@ -274,14 +250,14 @@ export default function RH() {
                         </tr>
                     </thead>
                     <tbody>
-                        {loading && <tr><td colSpan="8" style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={24}/></td></tr>}
-                        {!loading && data.payslips.length === 0 && (
+                        {loadingPayslips && <tr><td colSpan="8" style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={24}/></td></tr>}
+                        {!loadingPayslips && payslips.length === 0 && (
                             <tr><td colSpan="8" style={{ padding: 60, textAlign: 'center' }} className="text-muted">
                                 <AlertCircle size={32} style={{ margin: '0 auto 12px', opacity: 0.2, display: 'block' }} />
                                 Aucun bulletin de paie généré pour cette session.
                             </td></tr>
                         )}
-                        {data.payslips.map(ps => (
+                        {payslips.map(ps => (
                             <tr key={ps.id}>
                                 <td style={{ fontWeight: 800, color: 'var(--secondary)' }}>{ps.period_name}</td>
                                 <td style={{ fontWeight: 600 }}>{ps.employee?.first_name} {ps.employee?.last_name}</td>
@@ -405,8 +381,8 @@ export default function RH() {
                 </div>
 
                 <div className="mt-auto flex-c gap-3">
-                  <button className="btn btn-primary w-full" style={{ height: 48 }} onClick={handleCreateEmployee} disabled={saving}>
-                    {saving ? <Loader2 size={20} className="animate-spin" /> : <Briefcase size={20} />}
+                  <button className="btn btn-primary w-full" style={{ height: 48 }} onClick={handleCreateEmployee} disabled={createEmployeeMutation.isPending}>
+                    {createEmployeeMutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <Briefcase size={20} />}
                     <span className="ml-2">Finaliser le recrutement</span>
                   </button>
                   <button className="btn btn-outline w-full" onClick={() => setShowNewEmployee(false)}>Annuler</button>

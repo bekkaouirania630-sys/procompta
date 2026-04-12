@@ -126,36 +126,22 @@ class DatabaseSeeder extends Seeder
             ['554', 'Banques (soldes créditeurs)', 'passif'],
             ['5541', 'Banques (soldes créditeurs)', 'passif'],
 
-            // --- CLASSE 6 : COMPTES DE CHARGES ---
-            ['61', 'CHARGES D\'EXPLOITATION', 'charge'],
-            ['611', 'Achats revendus de marchandises', 'charge'],
-            ['6111', 'Achats de marchandises', 'charge'],
-            ['612', 'Achats consommés de matières et fournitures', 'charge'],
-            ['6121', 'Achats de matières premières', 'charge'],
-            ['613', 'Autres charges externes', 'charge'],
-            ['6131', 'Locations et charges locatives', 'charge'],
-            ['6133', 'Entretien et réparations', 'charge'],
-            ['614', 'Autres charges externes (suite)', 'charge'],
-            ['6142', 'Transports', 'charge'],
-            ['6144', 'Publicité, publications et relations publiques', 'charge'],
-            ['6145', 'Frais postaux et de télécommunications', 'charge'],
-            ['616', 'Impôts et taxes', 'charge'],
-            ['6161', 'Impôts et taxes directs', 'charge'],
-            ['617', 'Charges de personnel', 'charge'],
-            ['6171', 'Rémunérations du personnel', 'charge'],
-            ['6174', 'Charges sociales', 'charge'],
+             // --- CLASSE 6 : COMPTES DE CHARGES ---
+             ['6111', 'Achats de marchandises', 'charge'],
+             ['6121', 'Achats de mati\u00e8res premi\u00e8res', 'charge'],
+             ['6131', 'Locations et charges locatives', 'charge'],
+             ['6141', 'Etudes, recherches et documentation', 'charge'],
+             ['6145', 'Frais postaux et de t\u00e9l\u00e9communications', 'charge'],
+             ['6161', 'Imp\u00f4ts et taxes directs', 'charge'],
+             ['6171', 'R\u00e9mun\u00e9rations du personnel', 'charge'],
+             ['6174', 'Charges sociales', 'charge'],
 
-            // --- CLASSE 7 : COMPTES DE PRODUITS ---
-            ['71', 'PRODUITS D\'EXPLOITATION', 'produit'],
-            ['711', 'Ventes de marchandises', 'produit'],
-            ['7111', 'Ventes de marchandises au Maroc', 'produit'],
-            ['712', 'Ventes de biens et services produits', 'produit'],
-            ['7121', 'Ventes de produits finis', 'produit'],
-            ['7124', 'Ventes de services produits', 'produit'],
-            ['73', 'PRODUITS FINANCIERS', 'produit'],
-            ['738', 'Intérêts et autres produits financiers', 'produit'],
-            ['7381', 'Intérêts et produits assimilés', 'produit'],
-        ];
+             // --- CLASSE 7 : COMPTES DE PRODUITS ---
+             ['7111', 'Ventes de marchandises au Maroc', 'produit'],
+             ['7121', 'Ventes de produits finis', 'produit'],
+             ['7124', 'Ventes de services produits', 'produit'],
+             ['7381', 'Int\u00e9r\u00eats et produits assimil\u00e9s', 'produit'],
+         ];
 
         foreach ($pcm as $account) {
             DB::table('accounts')->insert([

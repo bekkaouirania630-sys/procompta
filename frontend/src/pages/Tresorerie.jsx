@@ -252,177 +252,181 @@ export default function Tresorerie() {
         </div>
       </div>
 
-      <div className="grid g12 gap-8">
-        <div className="col-span-12 lg:col-span-12 flex flex-col gap-8">
-            <div className={`grid ${matchingTx ? 'grid-cols-2' : 'grid-cols-12'} gap-8 transition-all`}>
-                
-                {/* Account & Transactions Section */}
-                <div className={`${matchingTx ? '' : 'col-span-12'} grid grid-cols-12 gap-8`}>
-                    {/* Account Selector */}
-                    <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
-                        <h3 className="premium-font" style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Mes Comptes & Caisses</h3>
-                        {accounts.map(acc => (
-                            <div 
-                                key={acc.id}
-                                onClick={() => setSelectedAccount(acc)}
-                                className="card fade-in"
-                                style={{ 
-                                    cursor: 'pointer', 
-                                    padding: '16px 20px',
-                                    borderLeft: selectedAccount?.id === acc.id ? '4px solid var(--primary)' : '1px solid var(--border-light)',
-                                    background: selectedAccount?.id === acc.id ? 'var(--primary-glow)' : '#fff'
-                                }}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex-c" style={{ gap: '2px' }}>
-                                        <span className="premium-font" style={{ fontWeight: 800, fontSize: '14px' }}>{acc.name}</span>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>{acc.bank_name || 'Caisse Centrale'}</span>
+      <div className="grid grid-cols-12 gap-8">
+        {/* mes comptes & caisses */}
+        <div className={`col-span-12 ${matchingTx ? 'lg:col-span-3' : 'lg:col-span-3'} flex flex-col gap-4`}>
+            <h3 className="premium-font" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>Mes Comptes & Caisses</h3>
+            <div className="flex flex-col gap-3">
+              {accounts.map(acc => (
+                  <div 
+                      key={acc.id}
+                      onClick={() => setSelectedAccount(acc)}
+                      className={`card transition-all duration-300 ${selectedAccount?.id === acc.id ? 'ring-2 ring-primary/20 shadow-lg shadow-primary/10' : 'hover:border-primary/30'}`}
+                      style={{ 
+                          cursor: 'pointer', 
+                          padding: '16px 20px',
+                          borderLeft: selectedAccount?.id === acc.id ? '4px solid var(--primary)' : '1px solid var(--border-light)',
+                          background: selectedAccount?.id === acc.id ? 'var(--primary-glow)' : '#fff'
+                      }}
+                  >
+                      <div className="flex justify-between items-start mb-2">
+                          <div className="flex flex-col gap-1">
+                              <span className="premium-font" style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-main)' }}>{acc.name}</span>
+                              <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>{acc.bank_name || 'Caisse Centrale'}</span>
+                          </div>
+                          <div style={{ color: acc.type === 'banque' ? 'var(--primary)' : 'var(--accent)' }}>
+                              {acc.type === 'banque' ? <Landmark size={18}/> : <Banknote size={18}/>}
+                          </div>
+                      </div>
+                      <div className="num-font" style={{ fontSize: '18px', fontWeight: 800, color: acc.current_balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          {fmt(acc.current_balance)} <span style={{ fontSize: '10px', fontWeight: 400, color: 'var(--text-dim)' }}>{acc.currency}</span>
+                      </div>
+                  </div>
+              ))}
+            </div>
+            
+            <button className="btn btn-outline w-full py-3" onClick={() => setShowAddAccount(true)}>
+                <Plus size={16}/> Nouveau Compte
+            </button>
+        </div>
+
+        {/* flux bancaire (transactions) */}
+        <div className={`col-span-12 ${matchingTx ? 'lg:col-span-5' : 'lg:col-span-9'}`}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {/* Header separate from Scrollable Table */}
+                <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-mut)' }}>
+                    <div>
+                        <h3 className="premium-font" style={{ margin: 0, fontSize: '18px' }}>Flux Bancaire {isReconciling && <span className="badge badge-primary ml-2">Assistant IA</span>}</h3>
+                        <p className="text-muted" style={{ fontSize: '12px', fontWeight: 500 }}>{selectedAccount?.name} — {selectedAccount?.account_number}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        {isReconciling && (
+                            <button className="btn btn-primary btn-xs px-3" onClick={handleAutoMatch} disabled={autoMatching}>
+                                {autoMatching ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12}/>} Matching Auto
+                            </button>
+                        )}
+                        <button className="btn btn-outline btn-xs" onClick={() => setShowAddTx(true)}>+ Ajouter</button>
+                        <button className="btn btn-outline btn-xs" onClick={() => fetchTransactions(selectedAccount?.id)} disabled={txLoading}>
+                            {txLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12}/>}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Table Content Area */}
+                <div className="table-premium-responsive" style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+                    <table className="tbl-premium">
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                            <tr>
+                                <th>Date</th>
+                                <th>Libellé / Opération</th>
+                                <th>Référence</th>
+                                <th style={{ textAlign: 'right' }}>Débit (-)</th>
+                                <th style={{ textAlign: 'right' }}>Crédit (+)</th>
+                                <th style={{ textAlign: 'center' }}>Lettrage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {txLoading && <tr><td colSpan="6" style={{ padding: 60, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={32}/></td></tr>}
+                            {!txLoading && transactions.length === 0 && (
+                                <tr><td colSpan="6" style={{ padding: 80, textAlign: 'center' }} className="text-muted">
+                                    <div className="opacity-20 mb-4"><CreditCard size={48} className="mx-auto" /></div>
+                                    <div className="premium-font font-bold">Aucun mouvement détecté</div>
+                                    <div className="text-xs uppercase tracking-widest mt-1">Sélectionnez un autre compte ou importez un relevé</div>
+                                </td></tr>
+                            )}
+                            {transactions.map(tx => (
+                                <tr 
+                                  key={tx.id} 
+                                  onClick={() => isReconciling && handleReconcile(tx)}
+                                  className={`transition-colors ${matchingTx?.id === tx.id ? 'bg-primary-glow/50' : ''}`}
+                                  style={{ 
+                                    cursor: isReconciling ? 'pointer' : 'default',
+                                    opacity: matchingTx && matchingTx.id !== tx.id ? 0.3 : 1
+                                  }}
+                                >
+                                    <td className="num-font" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{new Date(tx.date).toLocaleDateString('fr-FR')}</td>
+                                    <td>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{tx.label}</div>
+                                        <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Manuel • PIÈCE N-001</div>
+                                    </td>
+                                    <td className="num-font" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{tx.reference || '—'}</td>
+                                    <td className="num-font" style={{ textAlign: 'right', color: 'var(--danger)', fontWeight: 800 }}>{tx.debit > 0 ? fmt(tx.debit) : '—'}</td>
+                                    <td className="num-font" style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 800 }}>{tx.credit > 0 ? fmt(tx.credit) : '—'}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {tx.is_reconciled ? (
+                                            <div className="flex items-center justify-center text-success"><ShieldCheck size={16}/></div>
+                                        ) : (
+                                            <span className="badge badge-gray opacity-50">Pending</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {/* matching results / suggestions box (4 columns) */}
+        {matchingTx && (
+            <div className="col-span-12 lg:col-span-4 fade-in">
+                <div className="card glass-panel h-full" style={{ borderColor: 'var(--primary)', background: 'var(--surface-real)' }}>
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20"><Sparkles size={24}/></div>
+                            <div>
+                                <h3 className="premium-font" style={{ margin: 0, fontSize: '16px' }}>Matching Assisté</h3>
+                                <p className="text-muted" style={{ fontSize: '11px' }}>Algorithme de rapprochement</p>
+                            </div>
+                        </div>
+                        <button className="tb-icon-btn" onClick={() => setMatchingTx(null)}><X size={18}/></button>
+                    </div>
+
+                    <div className="p-5 rounded-2xl border border-primary/20 bg-primary-glow/30 mb-8">
+                        <div className="text-[10px] text-primary font-bold uppercase tracking-widest mb-2" style={{ opacity: 0.6 }}>Analyse du flux</div>
+                        <div className="flex justify-between items-center">
+                            <div className="premium-font truncate" style={{ fontWeight: 800, fontSize: '15px', maxWidth: '150px' }}>{matchingTx.label}</div>
+                            <div className="num-font" style={{ fontWeight: 900, fontSize: '18px', color: matchingTx.debit > 0 ? 'var(--danger)' : 'var(--primary)' }}>
+                                {fmt(matchingTx.debit > 0 ? matchingTx.debit : matchingTx.credit)} <small style={{ fontSize: '10px' }}>MAD</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="premium-font" style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>Suggestions de lettrage</span>
+                            <div className="h-[1px] flex-1 bg-border-light"></div>
+                        </div>
+
+                        {suggestLoading ? (
+                            <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary" size={32}/></div>
+                        ) : suggestions.length === 0 ? (
+                            <div className="py-12 text-center">
+                                <AlertCircle className="mx-auto mb-3 opacity-20 text-danger" size={48}/>
+                                <p className="text-muted" style={{ fontSize: '13px' }}>Aucun écart nul trouvé.</p>
+                                <button className="btn btn-outline btn-xs mt-4">Saisie Manuelle</button>
+                            </div>
+                        ) : suggestions.map(s => (
+                            <div key={s.id} className="card hover:border-primary transition-all group" style={{ padding: '16px', background: '#fff' }}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="premium-font truncate" style={{ fontWeight: 800, fontSize: '14px' }}>{s.label}</div>
+                                        <div className="text-[10px] text-muted font-bold uppercase tracking-wider">Écr. {s.entry?.numero} • {new Date(s.entry?.date).toLocaleDateString()}</div>
                                     </div>
-                                    <div style={{ color: acc.type === 'banque' ? 'var(--secondary)' : 'var(--accent)' }}>
-                                        {acc.type === 'banque' ? <Landmark size={18}/> : <Banknote size={18}/>}
-                                    </div>
+                                    <div className="num-font" style={{ fontWeight: 900, color: 'var(--text-main)' }}>{fmt(s.debit || s.credit)}</div>
                                 </div>
-                                <div style={{ fontSize: '16px', fontWeight: 800, color: acc.current_balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                                    {fmt(acc.current_balance)} <span style={{ fontSize: '10px' }}>{acc.currency}</span>
+                                <div className="flex justify-between items-center mt-4">
+                                    <span className="badge badge-gray border-none text-[9px] uppercase tracking-widest">{s.account_id} - Tiers</span>
+                                    <button className="btn btn-primary btn-xs px-4" onClick={() => handleLink(s.id)}>
+                                        Valider <ArrowRight size={12}/>
+                                    </button>
                                 </div>
                             </div>
                         ))}
                     </div>
-
-                    {/* Transactions Table */}
-                    <div className="col-span-12 lg:col-span-9">
-                        <div className="card" style={{ padding: 0 }}>
-                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <h3 style={{ margin: 0 }}>Flux Bancaire {isReconciling && <span className="badge badge-primary">Mode Assistant</span>}</h3>
-                                    <p className="text-muted" style={{ fontSize: '12px', fontWeight: 500 }}>{selectedAccount?.name} — {selectedAccount?.account_number}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    {isReconciling && (
-                                        <button className="btn btn-outline btn-xs bg-primary/5 border-primary/20 text-primary" onClick={handleAutoMatch} disabled={autoMatching}>
-                                            {autoMatching ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12}/>} Rapprochement Auto
-                                        </button>
-                                    )}
-                                    <button className="btn btn-outline btn-xs" onClick={() => setShowAddTx(true)}>+ Ajouter ligne</button>
-                                    <button className="btn btn-primary btn-xs" onClick={() => fetchTransactions(selectedAccount?.id)} disabled={txLoading}>
-                                        {txLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12}/>}
-                                    </button>
-                                </div>
-                                <div className="table-premium-responsive">
-                                <table className="tbl-premium">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Libellé</th>
-                                            <th>Référence</th>
-                                            <th style={{ textAlign: 'right' }}>Débit (-)</th>
-                                            <th style={{ textAlign: 'right' }}>Crédit (+)</th>
-                                            <th style={{ textAlign: 'center' }}>Statut</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {txLoading && <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-primary" size={24}/></td></tr>}
-                                        {!txLoading && transactions.length === 0 && (
-                                            <tr><td colSpan="6" style={{ padding: 60, textAlign: 'center' }} className="text-muted">
-                                                <CreditCard size={32} style={{ margin: '0 auto 12px', opacity: 0.2, display: 'block' }} />
-                                                Aucun mouvement bancaire sur ce compte.
-                                            </td></tr>
-                                        )}
-                                        {transactions.map(tx => (
-                                            <tr 
-                                              key={tx.id} 
-                                              onClick={() => isReconciling && handleReconcile(tx)}
-                                              style={{ 
-                                                cursor: isReconciling ? 'pointer' : 'default',
-                                                background: matchingTx?.id === tx.id ? 'var(--primary-glow)' : 'transparent',
-                                                opacity: matchingTx && matchingTx.id !== tx.id ? 0.4 : 1
-                                              }}
-                                            >
-                                                <td className="num-font" style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{new Date(tx.date).toLocaleDateString()}</td>
-                                                <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{tx.label}</td>
-                                                <td style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{tx.reference || '—'}</td>
-                                                <td className="num-font" style={{ textAlign: 'right', color: 'var(--danger)', fontWeight: 600 }}>{tx.debit > 0 ? fmt(tx.debit) : '—'}</td>
-                                                <td className="num-font" style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 600 }}>{tx.credit > 0 ? fmt(tx.credit) : '—'}</td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    {tx.is_reconciled ? (
-                                                        <span className="badge badge-success"><ShieldCheck size={10} style={{ marginRight:4 }}/> Lettré</span>
-                                                    ) : (
-                                                        <span className="badge badge-warning">En attente</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
-
-                {/* Matching Results / Suggestions Panel */}
-                {matchingTx && (
-                    <div className="fade-in">
-                        <div className="card glass-panel" style={{ height: '100%', borderColor: 'var(--primary)' }}>
-                            <div className="flex justify-between items-center mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20"><Sparkles size={24}/></div>
-                                    <div>
-                                        <h3 className="premium-font" style={{ margin: 0 }}>Matching Intelligent</h3>
-                                        <p className="text-muted" style={{ fontSize: '12px' }}>Correspondances comptables suggérées</p>
-                                    </div>
-                                </div>
-                                <button className="tb-icon-btn" onClick={() => setMatchingTx(null)}><X size={18}/></button>
-                            </div>
-
-                            <div className="p-5 rounded-2xl border border-primary/20 bg-primary-glow/30 mb-8">
-                                <div className="text-xs text-primary font-bold uppercase tracking-widest mb-2" style={{ opacity: 0.6 }}>Mouvement Sélectionné</div>
-                                <div className="flex justify-between items-center">
-                                    <div className="premium-font" style={{ fontWeight: 800, fontSize: '16px' }}>{matchingTx.label}</div>
-                                    <div style={{ fontWeight: 900, fontSize: '18px', color: matchingTx.debit > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                                        {fmt(matchingTx.debit > 0 ? matchingTx.debit : matchingTx.credit)} MAD
-                                    </div>
-                                </div>
-                                <div className="text-xs text-muted mt-2">Référence: {matchingTx.reference || 'Non spécifiée'} • Date: {new Date(matchingTx.date).toLocaleDateString()}</div>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="premium-font" style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Suggestions (IA Engine)</div>
-                                    <div className="h-[1px] flex-1 bg-border-light"></div>
-                                </div>
-
-                                {suggestLoading ? (
-                                    <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary" size={32}/></div>
-                                ) : suggestions.length === 0 ? (
-                                    <div className="py-12 text-center text-muted">
-                                        <AlertCircle className="mx-auto mb-3 opacity-20" size={48}/>
-                                        <p style={{ fontSize: '13px' }}>Aucune écriture correspondante trouvée.<br/>Voulez-vous créer une écriture manuelle ?</p>
-                                        <button className="btn btn-outline btn-xs mt-4">Saisie Rapide</button>
-                                    </div>
-                                ) : suggestions.map(s => (
-                                    <div key={s.id} className="card hover:border-primary transition-all group" style={{ padding: '16px' }}>
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <div className="premium-font" style={{ fontWeight: 800, fontSize: '14px' }}>{s.label}</div>
-                                                <div className="text-xs text-muted">Écriture N° {s.entry?.numero} • {new Date(s.entry?.date).toLocaleDateString()}</div>
-                                            </div>
-                                            <div style={{ fontWeight: 900, color: 'var(--text-main)' }}>{fmt(s.debit || s.credit)} MAD</div>
-                                        </div>
-                                        <div className="flex justify-between items-center mt-4">
-                                            <span className="badge badge-gray border-none">{s.account_id} - Compte Tiers</span>
-                                            <button className="btn btn-primary btn-xs px-4" onClick={() => handleLink(s.id)}>
-                                                Lier ce montant <ArrowRight size={12}/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
-        </div>
+        )}
       </div>
 
       {/* ── Modals Redesign ── */}

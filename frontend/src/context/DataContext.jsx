@@ -42,7 +42,7 @@ export const DataProvider = ({ children }) => {
       const [
         accounts, journals, tiers, invoices, entries, 
         employees, payslips, fixedAssets, budgets, dashboard,
-        bankAccounts
+        bankAccounts, products
       ] = await Promise.all([
         fetch('http://localhost:8000/api/accounting/accounts', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/accounting/journals', { headers }).then(r => r.json()),
@@ -54,7 +54,8 @@ export const DataProvider = ({ children }) => {
         fetch('http://localhost:8000/api/fixed-assets', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/budgets', { headers }).then(r => r.json()),
         fetch('http://localhost:8000/api/dashboard/accounting', { headers }).then(r => r.json()),
-        fetch('http://localhost:8000/api/bank-accounts/summary', { headers }).then(r => r.json())
+        fetch('http://localhost:8000/api/bank-accounts/summary', { headers }).then(r => r.json()),
+        fetch('http://localhost:8000/api/products', { headers }).then(r => r.json()).catch(() => [])
       ]);
 
       setData({
@@ -68,6 +69,7 @@ export const DataProvider = ({ children }) => {
         fixed_assets: Array.isArray(fixedAssets) ? fixedAssets : [],
         budgets: Array.isArray(budgets) ? budgets : [],
         bank_accounts: bankAccounts?.accounts || [],
+        products: Array.isArray(products) ? products : [],
         stats: (dashboard && typeof dashboard === 'object' && !dashboard.message) ? dashboard : { ca: 0, charges: 0, tvaCollectee: 0, tvaDeductible: 0, resultat: 0 }
       });
     } catch (err) {

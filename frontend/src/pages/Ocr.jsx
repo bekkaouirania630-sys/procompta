@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { useAccounts, useJournals, useCreateEntry } from '../hooks/useAccounting';
 import {
-  ScanLine, Upload, FileText, CheckCircle, AlertTriangle,
+  ScanLine, FileText, CheckCircle, AlertTriangle,
   Loader2, Trash2, Eye, ArrowRight, Zap, Check, X,
   ExternalLink, Calculator, Building2, Calendar, Sparkles, Wand2,
-  Database, ShieldCheck, History as HistoryIcon
-} from 'lucide-react';
+  Database, History as HistoryIcon, ShieldCheck
+} 
+from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
 
@@ -21,14 +22,21 @@ const getHeaders = () => ({
 const fmt = (n) => parseFloat(n || 0).toLocaleString('fr-MA', { minimumFractionDigits: 2 });
 
 export default function Ocr() {
-  const { data, refresh } = useData();
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingDocs, setLoadingDocs] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [verifying, setVerifying] = useState(false);
   
+  // React Query Hooks
+  const { data: accountsData } = useAccounts();
+  const { data: journalsData } = useJournals();
+  const createEntryMutation = useCreateEntry();
+  
+  const accounts = accountsData || [];
+  const journals = journalsData || [];
+
   // OCR specific states
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrStatus, setOcrStatus] = useState('');
@@ -42,7 +50,7 @@ export default function Ocr() {
         setDocuments(json.data || []);
       }
     } catch (e) { console.error(e); }
-    setLoading(false);
+    setLoadingDocs(false);
   };
 
   useEffect(() => {
@@ -153,8 +161,8 @@ export default function Ocr() {
     setVerifying(true);
     const ext = selectedDoc.ocr_result.extracted_data;
 
-    const achJournal = data.journals.find(j => j.code === 'ACH') || data.journals[0];
-    const vendorAccount = data.accounts.find(a => String(a.id) === String(ext.suggested_account)) || { id: 11 };
+    const achJournal = journals.find(j => j.code === 'ACH') || journals[0];
+    const vendorAccount = accounts.find(a => String(a.id) === String(ext.suggested_account)) || { id: 11 };
 
     const payload = {
       date: ext.date,
@@ -169,16 +177,9 @@ export default function Ocr() {
     };
 
     try {
-      const res = await fetch(`${API}/accounting/entries`, {
-        method: 'POST',
-        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        alert("Ecriture comptable générée avec succès !");
-        setSelectedDoc(null);
-        refresh();
-      }
+      await createEntryMutation.mutateAsync(payload);
+      alert("Ecriture comptable générée avec succès !");
+      setSelectedDoc(null);
     } catch (e) { console.error(e); }
     setVerifying(false);
   };
@@ -243,7 +244,7 @@ export default function Ocr() {
               <span className="badge badge-gray">{documents.length}</span>
             </div>
             <div style={{ maxHeight: '440px', overflowY: 'auto' }}>
-              {loading ? (
+              {loadingDocs ? (
                 <div style={{ padding: 60, textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-dim" /></div>
               ) : documents.map(doc => (
                 <div key={doc.id} onClick={() => setSelectedDoc(doc)} className={`hover:bg-bg ${selectedDoc?.id === doc.id ? 'bg-bg' : ''}`}
